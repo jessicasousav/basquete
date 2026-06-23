@@ -11,6 +11,12 @@
     hoopBlue: { x: 270, y: 172 },
     hoopRed: { x: 270, y: 785 },
   };
+  const BALL_BOUNDS = {
+    left: COURT.left,
+    right: COURT.right,
+    top: COURT.top,
+    bottom: COURT.bottom,
+  };
 
   const ASSET_PATHS = {
     court: "assets/generated/court-arena.png",
@@ -30,18 +36,29 @@
   };
 
   const BUTTONS_OFFENSE = [
-    { action: "PASS", icon: 0, x: 452, y: 640, r: 48 },
-    { action: "DRIVE", icon: 1, x: 381, y: 748, r: 43 },
-    { action: "SHOOT", icon: 2, x: 462, y: 760, r: 50 },
+    { action: "SHOOT", icon: 2, x: 452, y: 760, r: 40 },
+    { action: "PASS", icon: 0, x: 452, y: 842, r: 58 },
   ];
   const BUTTONS_DEFENSE = [
-    { action: "SWITCH", icon: 3, x: 452, y: 640, r: 48 },
-    { action: "STEAL", icon: 4, x: 381, y: 748, r: 43 },
-    { action: "BLOCK", icon: 5, x: 462, y: 760, r: 50 },
+    { action: "BLOCK", icon: 5, x: 452, y: 760, r: 40 },
+    { action: "STEAL", icon: 4, x: 452, y: 842, r: 58 },
   ];
-  const JOYSTICK = { x: 105, y: 704, r: 72, knob: 35 };
+  const JOYSTICK = { x: 108, y: 824, r: 72, knob: 35 };
   const CONFIG_BUTTON = { x: 490, y: 56, w: 36, h: 36 };
   const PLAYER_SHADOW_RADIUS_Y = 7;
+  const DEFENSE_SPACE = {
+    onBallCushion: 98,
+    pressureCushion: 74,
+    boostedCushion: 90,
+    closeHoopCushion: 56,
+    offBallCushion: 50,
+    opponentGap: -12,
+    teammateGap: -8,
+    stealGap: -20,
+    lungeGap: 52,
+    chargingLungeGap: 68,
+    attemptGap: 8,
+  };
   const HITBOX_DEFAULTS = {
     playerBodyWidth: 34,
     playerBodyHeight: 34,
@@ -54,7 +71,7 @@
     playerBodyLeftOffset: -17,
     playerBodyTopOffset: -17,
     shadowTopOffset: -5,
-    playerSeparationPadding: 3,
+    playerSeparationPadding: 0,
   };
   const HITBOXES = { ...HITBOX_DEFAULTS };
   const HITBOX_CONFIGS = [
@@ -72,12 +89,12 @@
   /**
    * @typedef {{ court: HTMLImageElement, blue: HTMLImageElement, red: HTMLImageElement, props: HTMLImageElement, icons: HTMLImageElement }} AssetManifest
    * @typedef {{ pts: number, reb: number, ast: number, stl: number }} PlayerStats
-   * @typedef {{ id: string, team: "blue" | "red", number: number, name: string, x: number, y: number, vx: number, vy: number, r: number, speed: number, stamina: number, boost: number, frameT: number, aiT: number, stealCooldown: number, blockCooldown: number, pressureT: number, stealLungeT: number, defenseShade: number, driftSeed: number, stats: PlayerStats }} Player
+   * @typedef {{ id: string, team: "blue" | "red", number: number, name: string, x: number, y: number, vx: number, vy: number, r: number, speed: number, stamina: number, boost: number, frameT: number, aiT: number, stealCooldown: number, blockCooldown: number, pressureT: number, stealLungeT: number, defenseShade: number, defenseDepth: number, driftSeed: number, stats: PlayerStats }} Player
    * @typedef {{ id: "blue" | "red", name: string, color: string, players: Player[] }} Team
-   * @typedef {{ mode: "held" | "pass" | "shot" | "loose" | "dead", x: number, y: number, z: number, holderId: string | null, targetId: string | null, fromX: number, fromY: number, targetX: number, targetY: number, time: number, duration: number, made: boolean, points: number, shooterId: string | null, assistFrom: string | null, looseDelay: number }} Ball
+   * @typedef {{ mode: "held" | "pass" | "shot" | "loose" | "dead", x: number, y: number, z: number, holderId: string | null, targetId: string | null, fromX: number, fromY: number, targetX: number, targetY: number, time: number, duration: number, made: boolean, points: number, shooterId: string | null, assistFrom: string | null, looseDelay: number, lastTouchTeam: "blue" | "red" }} Ball
    * @typedef {{ joystickPointer: number | null, actionPointers: Map<number, string>, joyX: number, joyY: number, keys: Set<string>, shootStart: number, chargingShoot: boolean }} InputState
    * @typedef {{ x: number, y: number, w: number, h: number }} RectHitbox
-   * @typedef {{ teams: { blue: Team, red: Team }, ball: Ball, possession: "blue" | "red", controlId: string, score: { blue: number, red: number }, quarter: number, gameTime: number, shotClock: number, paused: boolean, gameOver: boolean, message: string, messageT: number, pendingReset: null | { team: "blue" | "red", t: number }, blockWindow: number, lastPasser: string | null, showHitboxes: boolean, configOpen: boolean }} GameState
+   * @typedef {{ teams: { blue: Team, red: Team }, ball: Ball, possession: "blue" | "red", controlId: string, defenseSwitchT: number, score: { blue: number, red: number }, quarter: number, gameTime: number, shotClock: number, paused: boolean, gameOver: boolean, message: string, messageT: number, pendingReset: null | { team: "blue" | "red", t: number }, blockWindow: number, lastPasser: string | null, showHitboxes: boolean, configOpen: boolean }} GameState
    */
 
   /** @type {HTMLCanvasElement} */
@@ -150,6 +167,7 @@
       pressureT: 0,
       stealLungeT: 0,
       defenseShade: Math.random() < 0.5 ? -1 : 1,
+      defenseDepth: Math.random() * 2 - 1,
       driftSeed: Math.random() * Math.PI * 2,
       stats: { pts: 0, reb: 0, ast: 0, stl: 0 },
     };
@@ -196,9 +214,11 @@
         shooterId: null,
         assistFrom: null,
         looseDelay: 0,
+        lastTouchTeam: "blue",
       },
       possession: "blue",
       controlId: "b0",
+      defenseSwitchT: 0,
       score: { blue: 0, red: 0 },
       quarter: 3,
       gameTime: 167,
@@ -311,12 +331,14 @@
     };
   }
 
-  function insetRect(rect, amount) {
+  function expandRect(rect, amount) {
+    const w = Math.max(1, rect.w + amount);
+    const h = Math.max(1, rect.h + amount);
     return {
-      x: rect.x + amount / 2,
-      y: rect.y + amount / 2,
-      w: Math.max(1, rect.w - amount),
-      h: Math.max(1, rect.h - amount),
+      x: rect.x + (rect.w - w) / 2,
+      y: rect.y + (rect.h - h) / 2,
+      w,
+      h,
     };
   }
 
@@ -345,6 +367,13 @@
     return playerBodyHitbox(defender);
   }
 
+  function stealContactGap(defender, holder) {
+    return Math.min(
+      hitboxGap(stealHitbox(defender), playerBodyHitbox(holder)),
+      hitboxGap(stealHitbox(defender), heldBallHitbox(holder))
+    );
+  }
+
   function blockHitbox(defender) {
     return playerBodyHitbox(defender);
   }
@@ -368,6 +397,176 @@
 
   function lerp(a, b, t) {
     return a + (b - a) * t;
+  }
+
+  function attackingHoop(teamId) {
+    return teamId === "blue" ? COURT.hoopBlue : COURT.hoopRed;
+  }
+
+  function attackDirection(teamId) {
+    return teamId === "blue" ? -1 : 1;
+  }
+
+  function baseOffenseSpot(teamId, index) {
+    const spots = teamId === "blue"
+      ? [
+          { x: 216, y: 668 },
+          { x: 112, y: 506 },
+          { x: 428, y: 552 },
+        ]
+      : [
+          { x: 324, y: 302 },
+          { x: 148, y: 408 },
+          { x: 424, y: 452 },
+        ];
+    return spots[index];
+  }
+
+  function baseDefenseSpot(teamId, index) {
+    const spots = teamId === "blue"
+      ? [
+          { x: 220, y: 604 },
+          { x: 118, y: 512 },
+          { x: 414, y: 552 },
+        ]
+      : [
+          { x: 226, y: 612 },
+          { x: 126, y: 465 },
+          { x: 410, y: 500 },
+        ];
+    return spots[index];
+  }
+
+  function offenseTarget(player, index, holder, teamId) {
+    const base = baseOffenseSpot(teamId, index);
+    if (!holder || holder.team !== teamId) return base;
+    if (player.id === holder.id) return ballHandlerTarget(player, index, teamId);
+
+    const dir = attackDirection(teamId);
+    const hoop = attackingHoop(teamId);
+    const side = index === 1 ? -1 : 1;
+    const clock = performance.now() / 1000;
+    const driftX = Math.sin(clock * 1.1 + player.driftSeed) * 18;
+    const driftY = Math.cos(clock * 0.85 + player.driftSeed) * 16;
+    const wingDepth = index === 1 ? 118 : 92;
+    const spacing = 118 + index * 16;
+    let target = {
+      x: clamp(holder.x + side * spacing + driftX, COURT.left + 36, COURT.right - 36),
+      y: clamp(holder.y + dir * wingDepth + driftY, COURT.top + 54, COURT.bottom - 54),
+    };
+
+    const defender = nearestOpponent(player, opponentTeam(teamId));
+    const tight = defender && distance(player, defender) < 54;
+    if (tight && state.shotClock > 6) {
+      target = {
+        x: clamp(hoop.x + side * (72 + index * 34), COURT.left + 36, COURT.right - 36),
+        y: clamp(hoop.y - dir * (118 + index * 16), COURT.top + 54, COURT.bottom - 54),
+      };
+    } else if (state.shotClock < 7) {
+      target = {
+        x: clamp(hoop.x + side * 74, COURT.left + 36, COURT.right - 36),
+        y: clamp(hoop.y - dir * 112, COURT.top + 54, COURT.bottom - 54),
+      };
+    }
+
+    return target;
+  }
+
+  function ballHandlerTarget(holder, index, teamId) {
+    const hoop = attackingHoop(teamId);
+    const dir = attackDirection(teamId);
+    const defender = nearestOpponent(holder, opponentTeam(teamId));
+    const pressureSide = defender ? Math.sign(holder.x - defender.x || 1) : (index === 1 ? -1 : 1);
+    const clock = performance.now() / 1000;
+    const laneDrift = Math.sin(clock * 1.25 + holder.driftSeed) * 42 + pressureSide * 26;
+    const attackDepth = state.shotClock < 6 ? 54 : 92;
+    return {
+      x: clamp(hoop.x + laneDrift, COURT.left + 38, COURT.right - 38),
+      y: clamp(hoop.y - dir * attackDepth, COURT.top + 50, COURT.bottom - 50),
+    };
+  }
+
+  function defensiveAssignments(defendingTeam, holder) {
+    const offensiveTeam = opponentTeam(defendingTeam);
+    const defenders = [...state.teams[defendingTeam].players];
+    const attackers = [...state.teams[offensiveTeam].players];
+    const assignments = new Map();
+    const holderOnOffense = holder && holder.team === offensiveTeam ? holder : null;
+    const ballRef = holderOnOffense || state.ball;
+
+    if (holderOnOffense) {
+      const primary = bestOnBallDefender(defenders, holderOnOffense);
+      if (primary) {
+        assignments.set(primary.id, holderOnOffense);
+        removePlayerById(defenders, primary.id);
+        removePlayerById(attackers, holderOnOffense.id);
+      }
+    }
+
+    defenders
+      .sort((a, b) => distance(a, ballRef) - distance(b, ballRef))
+      .forEach((defender) => {
+        const mark = chooseOffBallMark(defender, attackers, holderOnOffense, defendingTeam);
+        if (!mark) return;
+        assignments.set(defender.id, mark);
+        removePlayerById(attackers, mark.id);
+      });
+
+    return assignments;
+  }
+
+  function removePlayerById(players, id) {
+    const index = players.findIndex((p) => p.id === id);
+    if (index >= 0) players.splice(index, 1);
+  }
+
+  function bestOnBallDefender(defenders, holder) {
+    let best = null;
+    let bestScore = Infinity;
+    for (const defender of defenders) {
+      const gap = stealContactGap(defender, holder);
+      const pressureBias = defender.pressureT > 0 ? -18 : 0;
+      const lungeBias = defender.stealLungeT > 0 ? -28 : 0;
+      const score = distance(defender, holder) + Math.max(0, gap) * 0.45 + pressureBias + lungeBias;
+      if (score < bestScore) {
+        best = defender;
+        bestScore = score;
+      }
+    }
+    return best;
+  }
+
+  function chooseOffBallMark(defender, attackers, holder, defendingTeam) {
+    if (!attackers.length) return null;
+    const defendedHoop = defendingTeam === "red" ? COURT.hoopBlue : COURT.hoopRed;
+    const ballRef = holder || state.ball;
+    let best = null;
+    let bestScore = Infinity;
+    for (const attacker of attackers) {
+      const rimThreat = distance(attacker, defendedHoop) * 0.25;
+      const passThreat = distance(attacker, ballRef) * 0.16;
+      const stableBias = Math.sin(defender.driftSeed * 1.7 + attacker.driftSeed * 2.3) * 16;
+      const score = distance(defender, attacker) * 0.78 + rimThreat + passThreat + stableBias;
+      if (score < bestScore) {
+        best = attacker;
+        bestScore = score;
+      }
+    }
+    return best;
+  }
+
+  function ballOutOfBounds() {
+    return (
+      state.ball.x < BALL_BOUNDS.left ||
+      state.ball.x > BALL_BOUNDS.right ||
+      state.ball.y < BALL_BOUNDS.top ||
+      state.ball.y > BALL_BOUNDS.bottom
+    );
+  }
+
+  function handleOutOfBounds() {
+    const lastTouchTeam = state.ball.lastTouchTeam || state.possession;
+    turnover(opponentTeam(lastTouchTeam), "OUT OF BOUNDS");
   }
 
   function norm(x, y) {
@@ -448,12 +647,18 @@
   }
 
   function controlledPlayer() {
-    return playerById(state.controlId) || state.teams.blue.players[0];
+    const player = playerById(state.controlId);
+    if (player && player.team === "blue") return player;
+    state.controlId = state.teams.blue.players[0].id;
+    return state.teams.blue.players[0];
   }
 
-  function switchControl() {
+  function autoSelectNearestDefender(dt, move) {
+    if (state.possession !== "red" || state.ball.mode === "dead") return;
+    state.defenseSwitchT = Math.max(0, state.defenseSwitchT - dt);
     const ballHolder = state.ball.holderId ? playerById(state.ball.holderId) : null;
     const target = ballHolder || state.ball;
+    const current = controlledPlayer();
     let best = state.teams.blue.players[0];
     let bestD = Infinity;
     for (const p of state.teams.blue.players) {
@@ -463,8 +668,17 @@
         bestD = d;
       }
     }
+    if (best.id === current.id) return;
+
+    const currentD = distance(current, target);
+    const manualMove = Math.hypot(move.x, move.y) > 0.08;
+    const clearlyCloser = currentD - bestD > (manualMove ? 44 : 18);
+    const currentLostPlay = currentD > 150 && bestD < currentD * 0.72;
+    if (state.defenseSwitchT > 0 && !currentLostPlay) return;
+    if (!clearlyCloser && !currentLostPlay) return;
+
     state.controlId = best.id;
-    showMessage(`${best.name.split(" ")[0]} SELECTED`, 0.9);
+    state.defenseSwitchT = manualMove ? 0.44 : 0.18;
   }
 
   function performPass() {
@@ -499,17 +713,9 @@
     state.ball.time = 0;
     state.ball.duration = clamp(distance(from, to) / 420, 0.18, 0.46);
     state.ball.assistFrom = from.id;
+    state.ball.lastTouchTeam = from.team;
     state.lastPasser = from.id;
     if (from.team === "blue") showMessage("PASS", 0.55);
-  }
-
-  function performDrive() {
-    if (state.ball.mode !== "held") return;
-    const p = playerById(state.ball.holderId);
-    if (!p || p.team !== "blue" || p.stamina < 0.12) return;
-    p.boost = 0.42;
-    p.stamina = Math.max(0, p.stamina - 0.16);
-    showMessage("DRIVE", 0.6);
   }
 
   function beginShootCharge() {
@@ -533,7 +739,14 @@
     if (state.ball.mode !== "held" || state.ball.holderId !== shooter.id) return;
     const hoop = shooter.team === "blue" ? COURT.hoopBlue : COURT.hoopRed;
     const dist = distance(shooter, hoop);
-    const points = dist > 285 ? 3 : 2;
+    const dirToHoop = norm(hoop.x - shooter.x, hoop.y - shooter.y);
+    const power = clamp((charge - 0.18) / 0.82, 0, 1);
+    const shotDistance = 62 + power * 520;
+    const reachesHoop = shotDistance >= dist * 0.96;
+    const targetX = reachesHoop ? hoop.x : shooter.x + dirToHoop.x * shotDistance;
+    const targetY = reachesHoop ? hoop.y : shooter.y + dirToHoop.y * shotDistance;
+    const travelDist = distance({ x: shooter.x, y: shooter.y }, { x: targetX, y: targetY });
+    const points = reachesHoop ? (dist > 285 ? 3 : 2) : 0;
     const contest = contestAmount(shooter);
     const blocker = shooter.team === "blue" ? autoBlockerFor(shooter, contest, charge) : manualBlockerFor(shooter, charge);
     if (blocker) {
@@ -545,23 +758,24 @@
     const distancePenalty = clamp((dist - 110) / 420, 0, 1) * 0.23;
     const blockPenalty = shooter.team === "red" && manualBlockContest(shooter) ? 0.24 : 0;
     const chance = clamp(0.18 + timing * 0.42 + staminaBonus - contest * 0.26 - distancePenalty - blockPenalty, 0.08, 0.82);
-    const made = Math.random() < chance;
+    const made = reachesHoop && Math.random() < chance;
 
     state.ball.mode = "shot";
     state.ball.holderId = null;
     state.ball.targetId = null;
     state.ball.fromX = shooter.x;
     state.ball.fromY = shooter.y - 28;
-    state.ball.targetX = hoop.x;
-    state.ball.targetY = hoop.y;
+    state.ball.targetX = targetX;
+    state.ball.targetY = targetY;
     state.ball.time = 0;
-    state.ball.duration = clamp(dist / 420, 0.58, 0.96);
+    state.ball.duration = clamp(travelDist / 420, 0.28, 0.96);
     state.ball.made = made;
     state.ball.points = points;
     state.ball.shooterId = shooter.id;
     state.ball.assistFrom = state.lastPasser;
+    state.ball.lastTouchTeam = shooter.team;
     shooter.stamina = Math.max(0.05, shooter.stamina - 0.14);
-    showMessage(made ? "GOOD RELEASE" : "SHOT UP", 0.75);
+    showMessage(made ? "GOOD RELEASE" : reachesHoop ? "SHOT UP" : "SHORT!", 0.75);
   }
 
   function autoBlockerFor(shooter, contest, charge) {
@@ -607,8 +821,13 @@
     state.ball.y = clamp(shooter.y - 36 + Math.random() * 42, COURT.top + 42, COURT.bottom - 42);
     state.ball.z = 28;
     state.ball.looseDelay = 0.08;
+    state.ball.lastTouchTeam = blocker.team;
     state.shotClock = 18;
     state.lastPasser = null;
+    if (ballOutOfBounds()) {
+      handleOutOfBounds();
+      return;
+    }
     showMessage("BLOCKED!", 1.05);
   }
 
@@ -636,9 +855,12 @@
     const defender = controlledPlayer();
     const holder = playerById(state.ball.holderId);
     if (!holder || holder.team !== "red") return;
-    const gap = hitboxGap(stealHitbox(defender), heldBallHitbox(holder));
-    const canReach = gap <= 0;
-    const chance = clamp(0.46 - Math.max(0, gap) / 70 + defender.stamina * 0.28, 0.06, 0.72);
+    const gap = stealContactGap(defender, holder);
+    const canReach = gap <= 10;
+    const bodyOverlap = hitboxesOverlap(stealHitbox(defender), playerBodyHitbox(holder));
+    const chance = clamp(0.52 - Math.max(0, gap) / 35 + defender.stamina * 0.25 + (bodyOverlap ? 0.08 : 0), 0.18, 0.86);
+    defender.stealLungeT = Math.max(defender.stealLungeT, 0.18);
+    defender.pressureT = Math.max(defender.pressureT, 0.2);
     defender.stamina = Math.max(0, defender.stamina - 0.12);
     if (canReach && Math.random() < chance) {
       defender.stats.stl += 1;
@@ -665,10 +887,18 @@
     state.ball.x = player.x;
     state.ball.y = player.y - 22;
     state.ball.z = 0;
+    state.ball.lastTouchTeam = teamId;
     state.possession = teamId;
     state.shotClock = 18;
     state.lastPasser = null;
-    if (teamId === "blue") state.controlId = player.id;
+    if (teamId === "blue") {
+      state.controlId = player.id;
+      state.defenseSwitchT = 0;
+    } else {
+      const defender = nearestOpponent(player, "blue");
+      if (defender) state.controlId = defender.id;
+      state.defenseSwitchT = 0.2;
+    }
   }
 
   function turnover(toTeam, reason) {
@@ -676,23 +906,24 @@
     const receiver = team.players[0];
     giveBall(receiver, toTeam);
     spreadForPossession(toTeam);
+    if (toTeam === "red") {
+      const defender = nearestOpponent(receiver, "blue");
+      if (defender) state.controlId = defender.id;
+      state.defenseSwitchT = 0.2;
+    }
     showMessage(reason, 1.2);
   }
 
   function spreadForPossession(teamId) {
-    const blueSpots = teamId === "blue"
-      ? [[216, 668], [116, 495], [424, 555]]
-      : [[155, 585], [255, 645], [425, 604]];
-    const redSpots = teamId === "red"
-      ? [[325, 300], [150, 405], [425, 445]]
-      : [[226, 612], [126, 465], [410, 500]];
     state.teams.blue.players.forEach((p, i) => {
-      p.x = blueSpots[i][0];
-      p.y = blueSpots[i][1];
+      const spot = teamId === "blue" ? baseOffenseSpot("blue", i) : baseDefenseSpot("blue", i);
+      p.x = spot.x;
+      p.y = spot.y;
     });
     state.teams.red.players.forEach((p, i) => {
-      p.x = redSpots[i][0];
-      p.y = redSpots[i][1];
+      const spot = teamId === "red" ? baseOffenseSpot("red", i) : baseDefenseSpot("red", i);
+      p.x = spot.x;
+      p.y = spot.y;
     });
   }
 
@@ -703,10 +934,8 @@
     }
     if (state.paused && action !== "PAUSE") return;
     if (action === "PASS" && isDown) performPass();
-    if (action === "DRIVE" && isDown) performDrive();
     if (action === "SHOOT" && isDown) beginShootCharge();
     if (action === "SHOOT" && !isDown) releaseShootCharge();
-    if (action === "SWITCH" && isDown) switchControl();
     if (action === "STEAL" && isDown) trySteal();
     if (action === "BLOCK" && isDown) tryBlock();
   }
@@ -756,6 +985,7 @@
 
   function updatePlayers(dt) {
     const move = keyboardVector();
+    autoSelectNearestDefender(dt, move);
     const controlled = controlledPlayer();
 
     for (const p of allPlayers()) {
@@ -785,111 +1015,136 @@
   function updateBlueTeammates(dt) {
     const holder = state.ball.holderId ? playerById(state.ball.holderId) : null;
     const offense = state.possession === "blue";
-    const spots = offense
-      ? [
-          { x: 220, y: 646 },
-          { x: 104, y: 470 },
-          { x: 438, y: 510 },
-        ]
-      : [
-          { x: 230, y: 612 },
-          { x: 126, y: 455 },
-          { x: 410, y: 508 },
-        ];
+    const marks = offense ? null : defensiveAssignments("blue", holder);
     state.teams.blue.players.forEach((p, i) => {
       if (p.id === state.controlId) return;
-      let target = spots[i];
+      let target = baseOffenseSpot("blue", i);
+      let speed = p.speed * 0.66;
       if (!offense) {
-        const mark = state.teams.red.players[i];
-        target = { x: lerp(p.x, mark.x, 0.08), y: mark.y + (mark.y < 520 ? 30 : -28) };
+        const mark = marks.get(p.id);
+        const isPrimary = isPrimaryDefender(p, holder, "blue");
+        if (p.aiT <= 0) {
+          p.aiT = 0.95 + Math.random() * 1.3;
+          p.defenseShade = Math.random() < 0.5 ? -1 : 1;
+          p.defenseDepth = Math.random() * 2 - 1;
+          if (holder && holder.team === "red" && isPrimary && Math.random() < 0.32) {
+            p.pressureT = 0.28 + Math.random() * 0.26;
+          }
+        } else {
+          p.aiT -= dt;
+        }
+        target = defenseTarget(p, mark, i, holder, "blue");
+        speed = p.speed * (p.pressureT > 0 && isPrimary ? 0.9 : 0.7);
       } else if (holder && holder.team === "blue" && holder.id !== p.id) {
-        const side = i === 1 ? -1 : 1;
-        target = { x: clamp(holder.x + side * 135, COURT.left + 36, COURT.right - 36), y: clamp(holder.y - 120 + i * 28, 305, 655) };
+        target = offenseTarget(p, i, holder, "blue");
       }
-      moveToward(p, target.x, target.y, p.speed * 0.66, dt);
+      moveToward(p, target.x, target.y, speed, dt);
     });
   }
 
   function updateRedPlayers(dt) {
     const redHasBall = state.possession === "red";
     const holder = state.ball.holderId ? playerById(state.ball.holderId) : null;
+    const marks = redHasBall ? null : defensiveAssignments("red", holder);
     state.teams.red.players.forEach((p, i) => {
       if (redHasBall) {
         if (holder && holder.id === p.id) {
-          const laneX = 270 + Math.sin(performance.now() / 550 + i) * 55;
-          const target = { x: laneX, y: COURT.hoopRed.y - 72 };
+          const target = ballHandlerTarget(p, i, "red");
           moveToward(p, target.x, target.y, p.speed * 0.74, dt);
+        } else if (holder && holder.team === "red") {
+          const target = offenseTarget(p, i, holder, "red");
+          moveToward(p, target.x, target.y, p.speed * 0.66, dt);
         } else {
-          const side = i === 1 ? -1 : 1;
-          const baseY = i === 2 ? 565 : 482;
-          moveToward(p, 270 + side * 145, baseY, p.speed * 0.62, dt);
+          const target = baseOffenseSpot("red", i);
+          moveToward(p, target.x, target.y, p.speed * 0.62, dt);
         }
       } else {
-        const mark = state.teams.blue.players[i];
+        const mark = marks.get(p.id);
+        const isPrimary = isPrimaryDefender(p, holder, "red");
         if (p.aiT <= 0) {
           p.aiT = 0.95 + Math.random() * 1.3;
           p.defenseShade = Math.random() < 0.5 ? -1 : 1;
-          if (holder && holder.team === "blue" && mark.id === holder.id && Math.random() < 0.62) {
-            p.pressureT = 0.55 + Math.random() * 0.45;
+          p.defenseDepth = Math.random() * 2 - 1;
+          if (holder && holder.team === "blue" && isPrimary && Math.random() < 0.34) {
+            p.pressureT = 0.28 + Math.random() * 0.3;
           }
         } else {
           p.aiT -= dt;
         }
-        const target = redDefenseTarget(p, mark, i, holder);
-        const onBall = holder && mark.id === holder.id;
-        const speed = p.speed * (p.stealLungeT > 0 && onBall ? 1.34 : p.pressureT > 0 && onBall ? 1.02 : 0.72);
+        const target = defenseTarget(p, mark, i, holder, "red");
+        const speed = p.speed * (p.stealLungeT > 0 && isPrimary ? 1.28 : p.pressureT > 0 && isPrimary ? 0.9 : 0.7);
         moveToward(p, target.x, target.y, speed, dt);
       }
     });
   }
 
-  function redDefenseTarget(defender, mark, index, holder) {
-    const holderId = holder && holder.team === "blue" ? holder.id : null;
-    const onBall = mark.id === holderId;
-    const hoop = COURT.hoopBlue;
-    const toHoop = norm(hoop.x - mark.x, hoop.y - mark.y);
+  function defenseTarget(defender, mark, index, holder, defendingTeam) {
+    const offensiveTeam = opponentTeam(defendingTeam);
+    const holderId = holder && holder.team === offensiveTeam ? holder.id : null;
+    const onBall = Boolean(holderId && mark && mark.id === holderId);
+    const guarded = mark || (holderId ? holder : state.teams[offensiveTeam].players[index]);
+    if (!guarded) return baseDefenseSpot(defendingTeam, index);
+    const hoop = defendingTeam === "red" ? COURT.hoopBlue : COURT.hoopRed;
+    const toHoop = norm(hoop.x - guarded.x, hoop.y - guarded.y);
     const lateral = { x: -toHoop.y, y: toHoop.x };
-    const speed = Math.hypot(mark.vx, mark.vy);
-    const move = speed > 8 ? norm(mark.vx, mark.vy) : { x: 0, y: 0 };
+    const speed = Math.hypot(guarded.vx, guarded.vy);
+    const move = speed > 8 ? norm(guarded.vx, guarded.vy) : { x: 0, y: 0 };
     const drift = Math.sin(performance.now() / 420 + defender.driftSeed) * (onBall ? 13 : 18);
-    const laneCut = (move.x * lateral.x + move.y * lateral.y) * (mark.boost > 0 ? 38 : 24);
+    const laneCut = (move.x * lateral.x + move.y * lateral.y) * (guarded.boost > 0 ? 38 : 24);
+    const depthBias = defender.defenseDepth * (onBall ? 18 : 14);
     const predicted = {
-      x: mark.x + mark.vx * (onBall ? 0.2 : 0.12),
-      y: mark.y + mark.vy * (onBall ? 0.2 : 0.12),
+      x: guarded.x + guarded.vx * (onBall ? 0.2 : 0.12),
+      y: guarded.y + guarded.vy * (onBall ? 0.2 : 0.12),
     };
 
     if (onBall) {
       if (defender.stealLungeT > 0) {
-        const ballCenter = rectCenter(heldBallHitbox(mark));
+        const ballCenter = rectCenter(heldBallHitbox(guarded));
         const jab = defender.defenseShade * (6 + Math.sin(performance.now() / 90 + defender.driftSeed) * 4);
-        const target = playerAnchorForBodyCenter({ x: ballCenter.x + jab, y: ballCenter.y + 6 });
+        const target = playerAnchorForBodyCenter({
+          x: ballCenter.x + toHoop.x * 38 + lateral.x * jab,
+          y: ballCenter.y + toHoop.y * 38 + lateral.y * jab,
+        });
         return {
           x: clamp(target.x, COURT.left + 24, COURT.right - 24),
           y: clamp(target.y, COURT.top + 42, COURT.bottom - 42),
         };
       }
-      const hoopDist = distance(mark, hoop);
-      const sag = hoopDist > 330 ? 12 : hoopDist < 175 ? -12 : 0;
-      const cushion = defender.pressureT > 0 ? 43 : mark.boost > 0 ? 62 : 72 + sag;
-      const shade = defender.defenseShade * (defender.pressureT > 0 ? 14 : 26) + drift + laneCut;
+      const hoopDist = distance(guarded, hoop);
+      const sag = hoopDist > 330 ? 10 : hoopDist < 175 ? -18 : 0;
+      const baseCushion = defender.pressureT > 0
+        ? DEFENSE_SPACE.pressureCushion
+        : guarded.boost > 0
+          ? DEFENSE_SPACE.boostedCushion
+          : DEFENSE_SPACE.onBallCushion;
+      const cushion = clamp(baseCushion + sag + depthBias, DEFENSE_SPACE.closeHoopCushion, 146);
+      const lead = guarded.boost > 0 ? 22 : 13;
+      const shade = defender.defenseShade * (defender.pressureT > 0 ? 30 : 44) + drift + laneCut;
       return {
-        x: clamp(predicted.x + toHoop.x * cushion + lateral.x * shade, COURT.left + 24, COURT.right - 24),
-        y: clamp(predicted.y + toHoop.y * cushion + lateral.y * shade, COURT.top + 42, COURT.bottom - 42),
+        x: clamp(predicted.x + move.x * lead + toHoop.x * cushion + lateral.x * shade, COURT.left + 24, COURT.right - 24),
+        y: clamp(predicted.y + move.y * lead + toHoop.y * cushion + lateral.y * shade, COURT.top + 42, COURT.bottom - 42),
       };
     }
 
-    const ballSide = holder && holder.team === "blue" ? holder : state.ball;
+    const ballSide = holder && holder.team !== defendingTeam ? holder : state.ball;
+    const helpMix = distance(guarded, ballSide) > 170 ? 0.34 : 0.22;
     const help = {
-      x: lerp(mark.x, ballSide.x, 0.28),
-      y: lerp(mark.y, ballSide.y, 0.28),
+      x: lerp(guarded.x, ballSide.x, helpMix),
+      y: lerp(guarded.y, ballSide.y, helpMix),
     };
-    const side = index === 1 ? -1 : index === 2 ? 1 : defender.defenseShade;
-    const deny = side * 34 + drift * 0.65;
-    const cushion = 48 + Math.sin(performance.now() / 700 + defender.driftSeed) * 8;
+    const ballDenySide = Math.sign(guarded.x - ballSide.x || defender.defenseShade);
+    const deny = ballDenySide * 24 + defender.defenseShade * 16 + drift * 0.65;
+    const cushion = DEFENSE_SPACE.offBallCushion + depthBias + Math.sin(performance.now() / 700 + defender.driftSeed) * 8;
     return {
       x: clamp(help.x + toHoop.x * cushion + lateral.x * deny, COURT.left + 24, COURT.right - 24),
       y: clamp(help.y + toHoop.y * cushion + lateral.y * deny, COURT.top + 42, COURT.bottom - 42),
     };
+  }
+
+  function isPrimaryDefender(defender, holder, defendingTeam) {
+    if (!holder || holder.team === defendingTeam) return false;
+    const primary = nearestOpponent(holder, defendingTeam);
+    return Boolean(primary && primary.id === defender.id);
   }
 
   function separatePlayers() {
@@ -898,8 +1153,9 @@
       for (let j = i + 1; j < players.length; j += 1) {
         const a = players[i];
         const b = players[j];
-        const aBox = insetRect(playerBodyHitbox(a), HITBOXES.playerSeparationPadding);
-        const bBox = insetRect(playerBodyHitbox(b), HITBOXES.playerSeparationPadding);
+        const personalSpace = playerPersonalSpace(a, b);
+        const aBox = expandRect(playerBodyHitbox(a), personalSpace);
+        const bBox = expandRect(playerBodyHitbox(b), personalSpace);
         if (hitboxesOverlap(aBox, bBox)) {
           const ac = rectCenter(aBox);
           const bc = rectCenter(bBox);
@@ -921,6 +1177,17 @@
     }
   }
 
+  function playerPersonalSpace(a, b) {
+    const pad = HITBOXES.playerSeparationPadding;
+    const holder = state.ball.mode === "held" && state.ball.holderId ? playerById(state.ball.holderId) : null;
+    if (holder && a.team !== b.team) {
+      const defender = a.id === holder.id ? b : b.id === holder.id ? a : null;
+      if (defender && defender.stealLungeT > 0) return DEFENSE_SPACE.stealGap + pad * 0.4;
+      return DEFENSE_SPACE.opponentGap + pad;
+    }
+    return DEFENSE_SPACE.teammateGap + pad;
+  }
+
   function updateBall(dt) {
     const ball = state.ball;
     if (ball.mode === "held") {
@@ -938,6 +1205,10 @@
       ball.x = lerp(ball.fromX, ball.targetX, t);
       ball.y = lerp(ball.fromY, ball.targetY, t);
       ball.z = Math.sin(Math.PI * t) * 28;
+      if (ballOutOfBounds()) {
+        handleOutOfBounds();
+        return;
+      }
       if (t >= 1) {
         const target = playerById(ball.targetId);
         if (target) {
@@ -961,6 +1232,10 @@
     if (ball.mode === "loose") {
       ball.looseDelay -= dt;
       ball.z = Math.max(0, ball.z - dt * 38);
+      if (ballOutOfBounds()) {
+        handleOutOfBounds();
+        return;
+      }
       if (ball.looseDelay <= 0) {
         const pickup = looseBallHitbox();
         let best = allPlayers()[0];
@@ -985,6 +1260,21 @@
     const ball = state.ball;
     const shooter = playerById(ball.shooterId);
     if (!shooter) return;
+    if (ball.points === 0) {
+      ball.mode = "loose";
+      ball.x = ball.targetX;
+      ball.y = ball.targetY;
+      ball.z = 18;
+      ball.holderId = null;
+      ball.looseDelay = 0.12;
+      state.shotClock = 18;
+      if (ballOutOfBounds()) {
+        handleOutOfBounds();
+        return;
+      }
+      showMessage("SHORT!", 0.8);
+      return;
+    }
     if (ball.made) {
       shooter.stats.pts += ball.points;
       state.score[shooter.team] += ball.points;
@@ -998,12 +1288,21 @@
     } else {
       const hoop = shooter.team === "blue" ? COURT.hoopBlue : COURT.hoopRed;
       ball.mode = "loose";
-      ball.x = clamp(hoop.x + (Math.random() - 0.5) * 122, COURT.left + 30, COURT.right - 30);
-      ball.y = clamp(hoop.y + (shooter.team === "blue" ? 58 : -58) + (Math.random() - 0.5) * 72, COURT.top + 42, COURT.bottom - 42);
+      const towardCourt = shooter.team === "blue" ? 1 : -1;
+      const behindBaseline = Math.random() < 0.18;
+      ball.x = hoop.x + (Math.random() - 0.5) * (behindBaseline ? 250 : 150);
+      ball.y = behindBaseline
+        ? hoop.y - towardCourt * (45 + Math.random() * 55)
+        : hoop.y + towardCourt * (62 + Math.random() * 96);
       ball.z = 30;
       ball.holderId = null;
+      ball.lastTouchTeam = shooter.team;
       ball.looseDelay = 0.18;
       state.shotClock = 18;
+      if (ballOutOfBounds()) {
+        handleOutOfBounds();
+        return;
+      }
       showMessage("REBOUND!", 1);
     }
   }
@@ -1036,35 +1335,37 @@
     if (!holder || holder.team !== "blue") return;
     const nearest = nearestOpponent(holder, "red");
     const holderSpeed = Math.hypot(holder.vx, holder.vy);
+    const charging = input.chargingShoot && state.ball.holderId === holder.id;
 
     for (const defender of state.teams.red.players) {
       if (defender.stealCooldown > 0 || defender.stamina < 0.12) continue;
-      const gap = hitboxGap(stealHitbox(defender), heldBallHitbox(holder));
       const isPrimary = defender.id === nearest?.id;
-      const lungeGap = isPrimary ? 78 : 34;
-      const attemptGap = isPrimary ? 42 : 18;
+      if (!isPrimary) continue;
+      const gap = stealContactGap(defender, holder);
+      const lungeGap = charging ? DEFENSE_SPACE.chargingLungeGap : DEFENSE_SPACE.lungeGap;
+      const attemptGap = DEFENSE_SPACE.attemptGap;
       const canPressure =
-        isPrimary &&
         gap <= lungeGap &&
-        (holder.boost > 0 || holderSpeed < 42 || defender.pressureT > 0 || state.shotClock < 10);
+        (charging || holder.boost > 0 || holderSpeed < 34 || defender.pressureT > 0 || state.shotClock < 8);
       if (canPressure) {
-        defender.pressureT = Math.max(defender.pressureT, 0.45);
-        defender.stealLungeT = Math.max(defender.stealLungeT, 0.28);
+        defender.pressureT = Math.max(defender.pressureT, 0.26);
+        defender.stealLungeT = Math.max(defender.stealLungeT, charging ? 0.22 : 0.16);
       }
       const shouldReach =
         gap <= attemptGap &&
-        (isPrimary || defender.pressureT > 0) &&
-        (defender.stealLungeT > 0 || defender.pressureT > 0 || holder.boost > 0 || holderSpeed < 26 || state.shotClock < 8);
+        defender.stealLungeT > 0 &&
+        (charging || holder.boost > 0 || holderSpeed < 26 || state.shotClock < 7);
       if (!shouldReach) continue;
 
-      defender.stealCooldown = 0.75 + Math.random() * 0.65;
-      defender.stealLungeT = Math.max(defender.stealLungeT, 0.18);
-      defender.pressureT = Math.max(defender.pressureT, 0.3);
+      defender.stealCooldown = 1.75 + Math.random() * 1.05;
+      defender.stealLungeT = Math.max(defender.stealLungeT, 0.12);
+      defender.pressureT = Math.max(defender.pressureT, 0.24);
       defender.stamina = Math.max(0, defender.stamina - 0.13);
-      const proximity = clamp(1 - Math.max(0, gap) / attemptGap, 0, 1);
-      const overlapBonus = gap <= 0 ? 0.16 : 0;
-      const driveRisk = holder.boost > 0 ? -0.06 : 0.05;
-      const chance = clamp(0.12 + proximity * 0.24 + overlapBonus + defender.stamina * 0.14 - holder.stamina * 0.08 + driveRisk, 0.07, 0.5);
+      const proximity = gap <= 0 ? clamp(1 + Math.abs(gap) / 24, 0, 1) : 0;
+      const overlapBonus = gap <= 0 ? 0.08 : 0;
+      const shotRisk = charging ? 0.05 : 0;
+      const driveRisk = holder.boost > 0 ? -0.08 : 0.01;
+      const chance = clamp(0.04 + proximity * 0.11 + overlapBonus + shotRisk + defender.stamina * 0.08 - holder.stamina * 0.1 + driveRisk, 0.03, 0.24);
       if (Math.random() < chance) {
         defender.stats.stl += 1;
         input.chargingShoot = false;
@@ -1090,7 +1391,6 @@
     if (state.showHitboxes) drawHitboxes();
     drawScoreboard();
     drawControls();
-    drawBottomHud();
     drawMessage();
     if (state.paused) drawPauseOverlay();
     if (state.gameOver) drawGameOver();
@@ -1221,7 +1521,7 @@
     ctx.beginPath();
     ctx.ellipse(p.x, playerShadowCenterY(p), 22, PLAYER_SHADOW_RADIUS_Y, 0, 0, Math.PI * 2);
     ctx.fill();
-    if (p.id === state.controlId) drawSelectionRing(p);
+    if (p.team === "blue" && p.id === state.controlId) drawSelectionRing(p);
     if (img && img.complete && img.naturalWidth) {
       const cw = img.naturalWidth / 4;
       const ch = img.naturalHeight / 2;
@@ -1559,51 +1859,6 @@
     ctx.restore();
   }
 
-  function drawBottomHud() {
-    const p = controlledPlayer();
-    ctx.save();
-    ctx.fillStyle = "rgba(0,0,0,0.64)";
-    ctx.fillRect(0, 828, W, 132);
-    drawPanel(72, 840, 396, 86, "rgba(5,38,82,0.94)", "#168eff");
-    const img = assets.props;
-    if (img && img.complete && img.naturalWidth) {
-      ctx.drawImage(img, 870, 95, 500, 560, 86, 849, 65, 68);
-    } else {
-      ctx.fillStyle = "#146fd7";
-      ctx.fillRect(86, 849, 65, 68);
-    }
-    ctx.textAlign = "left";
-    ctx.font = "bold 17px 'Courier New', monospace";
-    ctx.fillStyle = "#ffffff";
-    ctx.fillText(p.name, 165, 864);
-    ctx.font = "bold 13px 'Courier New', monospace";
-    const labels = ["PTS", "REB", "AST", "STL"];
-    const values = [p.stats.pts, p.stats.reb, p.stats.ast, p.stats.stl];
-    labels.forEach((label, i) => {
-      const x = 165 + i * 46;
-      ctx.fillStyle = "#ffd727";
-      ctx.fillText(label, x, 889);
-      ctx.fillStyle = "#ffffff";
-      ctx.fillText(String(values[i]), x + 8, 911);
-    });
-    ctx.strokeStyle = "#19a2ff";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(344, 862);
-    ctx.lineTo(344, 912);
-    ctx.stroke();
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "bold 13px 'Courier New', monospace";
-    ctx.fillText("STAMINA", 360, 879);
-    for (let i = 0; i < 10; i += 1) {
-      ctx.fillStyle = i / 10 < p.stamina ? "#41d331" : "#17331a";
-      ctx.fillRect(360 + i * 7, 895, 6, 15);
-      ctx.strokeStyle = "#0a160c";
-      ctx.strokeRect(360 + i * 7, 895, 6, 15);
-    }
-    ctx.restore();
-  }
-
   function drawMessage() {
     if (state.messageT <= 0) return;
     ctx.save();
@@ -1882,7 +2137,7 @@
   }
 
   function keyDown(event) {
-    if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space", "Tab"].includes(event.code)) {
+    if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space"].includes(event.code)) {
       event.preventDefault();
     }
     if (event.repeat) {
@@ -1897,16 +2152,16 @@
     if (event.code === "Escape") state.configOpen = false;
     if (event.code === "KeyH") state.showHitboxes = !state.showHitboxes;
     if (event.code === "KeyR" && state.gameOver) restartGame();
-    if (event.code === "KeyJ") performAction(state.possession === "blue" ? "PASS" : "SWITCH", true);
-    if (event.code === "KeyK") performAction(state.possession === "blue" ? "DRIVE" : "STEAL", true);
-    if (event.code === "KeyL") performAction(state.possession === "blue" ? "SHOOT" : "BLOCK", true);
-    if (event.code === "Space") performAction("SHOOT", true);
-    if (event.code === "Tab") performAction("SWITCH", true);
+    if (event.code === "KeyJ") performAction(state.possession === "blue" ? "PASS" : "BLOCK", true);
+    if (event.code === "KeyK" || event.code === "KeyL") performAction(state.possession === "blue" ? "SHOOT" : "STEAL", true);
+    if (event.code === "Space") performAction(state.possession === "blue" ? "SHOOT" : "STEAL", true);
   }
 
   function keyUp(event) {
     input.keys.delete(event.code);
-    if (event.code === "Space" || event.code === "KeyL") performAction("SHOOT", false);
+    if (state.possession === "blue" && (event.code === "Space" || event.code === "KeyK" || event.code === "KeyL")) {
+      performAction("SHOOT", false);
+    }
   }
 
   function restartGame() {
