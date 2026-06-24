@@ -11,13 +11,6 @@
     hoopBlue: { x: 270, y: 172 },
     hoopRed: { x: 270, y: 785 },
   };
-  const BALL_BOUNDS = {
-    left: COURT.left,
-    right: COURT.right,
-    top: COURT.top,
-    bottom: COURT.bottom,
-  };
-
   const ASSET_PATHS = {
     court: "assets/generated/court-arena.png",
     blue: "assets/generated/player-blue.png",
@@ -73,17 +66,28 @@
     playerBodyTopOffset: -70,
     shadowTopOffset: -22,
     playerSeparationPadding: 0,
+    courtBorderTopWidth: 442,
+    courtBorderBottomWidth: 608,
+    courtBorderHeight: 544,
+    courtBorderLeft: 48,
+    courtBorderTop: 251,
   };
   const HITBOXES = { ...HITBOX_DEFAULTS };
+  const NO_CONFIG_MAX = Number.POSITIVE_INFINITY;
   const HITBOX_CONFIGS = [
-    { type: "rect", widthKey: "playerBodyWidth", heightKey: "playerBodyHeight", label: "PLAYER BODY", min: 8, max: 88, step: 2 },
-    { type: "rect", widthKey: "heldBallWidth", heightKey: "heldBallHeight", label: "HELD BALL", min: 8, max: 56, step: 2 },
-    { type: "rect", widthKey: "looseBallPickupWidth", heightKey: "looseBallPickupHeight", label: "LOOSE PICKUP", min: 24, max: 160, step: 4 },
-    { type: "rect", widthKey: "shotReleaseWidth", heightKey: "shotReleaseHeight", label: "SHOT RELEASE", min: 10, max: 80, step: 2 },
-    { type: "single", key: "playerBodyLeftOffset", label: "PLAYER TOP-X", min: -80, max: 24, step: 1 },
-    { type: "single", key: "playerBodyTopOffset", label: "PLAYER TOP-Y", min: -80, max: 24, step: 1 },
-    { type: "single", key: "shadowTopOffset", label: "SHADOW TOP-Y", min: -36, max: 32, step: 1 },
-    { type: "single", key: "playerSeparationPadding", label: "COLLISION PAD", min: 0, max: 12, step: 1 },
+    { type: "rect", widthKey: "playerBodyWidth", heightKey: "playerBodyHeight", label: "PLAYER BODY", min: 8, max: NO_CONFIG_MAX, step: 2 },
+    { type: "rect", widthKey: "heldBallWidth", heightKey: "heldBallHeight", label: "HELD BALL", min: 8, max: NO_CONFIG_MAX, step: 2 },
+    { type: "rect", widthKey: "looseBallPickupWidth", heightKey: "looseBallPickupHeight", label: "LOOSE PICKUP", min: 24, max: NO_CONFIG_MAX, step: 4 },
+    { type: "rect", widthKey: "shotReleaseWidth", heightKey: "shotReleaseHeight", label: "SHOT RELEASE", min: 10, max: NO_CONFIG_MAX, step: 2 },
+    { type: "single", key: "playerBodyLeftOffset", label: "PLAYER TOP-X", min: -80, max: NO_CONFIG_MAX, step: 1 },
+    { type: "single", key: "playerBodyTopOffset", label: "PLAYER TOP-Y", min: -80, max: NO_CONFIG_MAX, step: 1 },
+    { type: "single", key: "shadowTopOffset", label: "SHADOW TOP-Y", min: -36, max: NO_CONFIG_MAX, step: 1 },
+    { type: "single", key: "playerSeparationPadding", label: "COLLISION PAD", min: 0, max: NO_CONFIG_MAX, step: 1 },
+    { type: "single", key: "courtBorderTopWidth", label: "COURT TOP WIDTH", min: 240, max: NO_CONFIG_MAX, step: 2 },
+    { type: "single", key: "courtBorderBottomWidth", label: "COURT BOTTOM WIDTH", min: 240, max: NO_CONFIG_MAX, step: 2 },
+    { type: "single", key: "courtBorderHeight", label: "COURT HEIGHT", min: 360, max: NO_CONFIG_MAX, step: 2 },
+    { type: "single", key: "courtBorderLeft", label: "COURT TOP-X", min: 0, max: NO_CONFIG_MAX, step: 1 },
+    { type: "single", key: "courtBorderTop", label: "COURT TOP-Y", min: 80, max: NO_CONFIG_MAX, step: 1 },
   ];
   loadHitboxSettings();
 
@@ -92,7 +96,7 @@
    * @typedef {{ pts: number, reb: number, ast: number, stl: number }} PlayerStats
    * @typedef {{ id: string, team: "blue" | "red", number: number, name: string, x: number, y: number, vx: number, vy: number, r: number, speed: number, stamina: number, boost: number, frameT: number, aiT: number, stealCooldown: number, blockCooldown: number, pressureT: number, stealLungeT: number, jumpOffset: number, defenseShade: number, defenseDepth: number, driftSeed: number, stats: PlayerStats }} Player
    * @typedef {{ id: "blue" | "red", name: string, color: string, players: Player[] }} Team
-   * @typedef {{ mode: "held" | "pass" | "shot" | "loose" | "dead", x: number, y: number, z: number, holderId: string | null, targetId: string | null, fromX: number, fromY: number, targetX: number, targetY: number, time: number, duration: number, made: boolean, points: number, shooterId: string | null, assistFrom: string | null, looseDelay: number, lastTouchTeam: "blue" | "red", inboundPass: boolean }} Ball
+   * @typedef {{ mode: "held" | "pass" | "shot" | "rim" | "loose" | "dead", x: number, y: number, z: number, vx: number, vy: number, vz: number, holderId: string | null, targetId: string | null, fromX: number, fromY: number, targetX: number, targetY: number, time: number, duration: number, made: boolean, perfectRelease: boolean, points: number, shooterId: string | null, assistFrom: string | null, looseDelay: number, lastTouchTeam: "blue" | "red", inboundPass: boolean, rimStyle: string, rimSide: number }} Ball
    * @typedef {{ team: "blue" | "red", inbounderId: string, receiverId: string, phase: "retrieve" | "setup", pickupX: number, pickupY: number, spotX: number, spotY: number, wait: number }} InboundPlay
    * @typedef {{ joystickPointer: number | null, actionPointers: Map<number, string>, joyX: number, joyY: number, keys: Set<string>, shootStart: number, chargingShoot: boolean }} InputState
    * @typedef {{ x: number, y: number, w: number, h: number }} RectHitbox
@@ -204,6 +208,9 @@
         x: 216,
         y: 668,
         z: 0,
+        vx: 0,
+        vy: 0,
+        vz: 0,
         holderId: "b0",
         targetId: null,
         fromX: 216,
@@ -213,12 +220,15 @@
         time: 0,
         duration: 0,
         made: false,
+        perfectRelease: false,
         points: 0,
         shooterId: null,
         assistFrom: null,
         looseDelay: 0,
         lastTouchTeam: "blue",
         inboundPass: false,
+        rimStyle: "",
+        rimSide: 1,
       },
       possession: "blue",
       controlId: "b0",
@@ -267,6 +277,7 @@
       migrateSavedRadius("heldBallRadius", "heldBallWidth", "heldBallHeight", saved);
       migrateSavedRadius("looseBallPickupRadius", "looseBallPickupWidth", "looseBallPickupHeight", saved);
       migrateSavedRadius("shotReleaseRadius", "shotReleaseWidth", "shotReleaseHeight", saved);
+      migrateSavedCourtWidth(saved);
       for (const key of hitboxConfigKeys()) {
         const config = configForKey(key);
         if (config && typeof saved[key] === "number") {
@@ -285,6 +296,18 @@
     const diameter = saved[radiusKey] * 2;
     if (widthConfig && typeof saved[widthKey] !== "number") HITBOXES[widthKey] = clamp(diameter, widthConfig.min, widthConfig.max);
     if (heightConfig && typeof saved[heightKey] !== "number") HITBOXES[heightKey] = clamp(diameter, heightConfig.min, heightConfig.max);
+  }
+
+  function migrateSavedCourtWidth(saved) {
+    if (typeof saved.courtBorderWidth !== "number") return;
+    const topConfig = configForKey("courtBorderTopWidth");
+    const bottomConfig = configForKey("courtBorderBottomWidth");
+    if (topConfig && typeof saved.courtBorderTopWidth !== "number") {
+      HITBOXES.courtBorderTopWidth = clamp(saved.courtBorderWidth, topConfig.min, topConfig.max);
+    }
+    if (bottomConfig && typeof saved.courtBorderBottomWidth !== "number") {
+      HITBOXES.courtBorderBottomWidth = clamp(saved.courtBorderWidth, bottomConfig.min, bottomConfig.max);
+    }
   }
 
   function hitboxConfigKeys() {
@@ -366,6 +389,32 @@
 
   function movingBallHitbox() {
     return rectFromCenter(state.ball.x, state.ball.y - state.ball.z, HITBOXES.heldBallWidth, HITBOXES.heldBallHeight);
+  }
+
+  function courtBorderHitbox() {
+    const centerX = HITBOXES.courtBorderLeft + HITBOXES.courtBorderTopWidth / 2;
+    const bottomLeft = centerX - HITBOXES.courtBorderBottomWidth / 2;
+    return {
+      x: HITBOXES.courtBorderLeft,
+      y: HITBOXES.courtBorderTop,
+      w: HITBOXES.courtBorderTopWidth,
+      h: HITBOXES.courtBorderHeight,
+      topWidth: HITBOXES.courtBorderTopWidth,
+      bottomWidth: HITBOXES.courtBorderBottomWidth,
+      topLeft: HITBOXES.courtBorderLeft,
+      topRight: HITBOXES.courtBorderLeft + HITBOXES.courtBorderTopWidth,
+      bottomLeft,
+      bottomRight: bottomLeft + HITBOXES.courtBorderBottomWidth,
+    };
+  }
+
+  function courtHorizontalBounds(y) {
+    const border = courtBorderHitbox();
+    const progress = clamp((y - border.y) / border.h, 0, 1);
+    return {
+      left: lerp(border.topLeft, border.bottomLeft, progress),
+      right: lerp(border.topRight, border.bottomRight, progress),
+    };
   }
 
   function stealHitbox(defender) {
@@ -577,11 +626,13 @@
   }
 
   function ballOutOfBounds() {
+    const border = courtBorderHitbox();
+    const bounds = courtHorizontalBounds(state.ball.y);
     return (
-      state.ball.x < BALL_BOUNDS.left ||
-      state.ball.x > BALL_BOUNDS.right ||
-      state.ball.y < BALL_BOUNDS.top ||
-      state.ball.y > BALL_BOUNDS.bottom
+      state.ball.y < border.y ||
+      state.ball.y > border.y + border.h ||
+      state.ball.x < bounds.left ||
+      state.ball.x > bounds.right
     );
   }
 
@@ -595,9 +646,12 @@
 
   function beginInbound(receivingTeam, outX, outY) {
     const team = state.teams[receivingTeam];
+    const border = courtBorderHitbox();
+    const pickupY = clamp(outY, border.y - 24, border.y + border.h + 24);
+    const pickupBounds = courtHorizontalBounds(pickupY);
     const pickup = {
-      x: clamp(outX, COURT.left - 22, COURT.right + 22),
-      y: clamp(outY, COURT.top - 24, COURT.bottom + 24),
+      x: clamp(outX, pickupBounds.left - 22, pickupBounds.right + 22),
+      y: pickupY,
     };
     const inbounder = team.players.reduce((best, player) =>
       distance(player, pickup) < distance(best, pickup) ? player : best
@@ -611,9 +665,11 @@
         ? player
         : best;
     }, null);
-    const useTopBasket = Math.abs(pickup.y - COURT.top) <= Math.abs(pickup.y - COURT.bottom);
+    const useTopBasket = Math.abs(pickup.y - border.y) <= Math.abs(pickup.y - (border.y + border.h));
     const hoop = useTopBasket ? COURT.hoopBlue : COURT.hoopRed;
     const side = pickup.x < hoop.x ? -1 : 1;
+    const baselineY = useTopBasket ? border.y : border.y + border.h;
+    const baselineBounds = courtHorizontalBounds(baselineY);
 
     state.possession = receivingTeam;
     state.shotClock = 18;
@@ -624,6 +680,9 @@
     state.ball.x = pickup.x;
     state.ball.y = pickup.y;
     state.ball.z = 0;
+    state.ball.vx = 0;
+    state.ball.vy = 0;
+    state.ball.vz = 0;
     state.ball.looseDelay = 999;
     state.ball.lastTouchTeam = lastTouchForInbound(receivingTeam);
     state.ball.inboundPass = false;
@@ -634,8 +693,8 @@
       phase: "retrieve",
       pickupX: pickup.x,
       pickupY: pickup.y,
-      spotX: clamp(hoop.x + side * 72, COURT.left + 34, COURT.right - 34),
-      spotY: useTopBasket ? COURT.top - 18 : COURT.bottom + 18,
+      spotX: clamp(hoop.x + side * 72, baselineBounds.left + 34, baselineBounds.right - 34),
+      spotY: useTopBasket ? border.y - 18 : border.y + border.h + 18,
       wait: 0,
     };
 
@@ -751,8 +810,10 @@
   }
 
   function clampPlayer(p) {
-    p.x = clamp(p.x, COURT.left + 18, COURT.right - 18);
-    p.y = clamp(p.y, COURT.top + 34, COURT.bottom - 34);
+    const border = courtBorderHitbox();
+    p.y = clamp(p.y, border.y + 34, border.y + border.h - 34);
+    const bounds = courtHorizontalBounds(p.y);
+    p.x = clamp(p.x, bounds.left + 18, bounds.right - 18);
   }
 
   function formatClock(seconds) {
@@ -881,6 +942,10 @@
     state.ball.assistFrom = from.id;
     state.ball.lastTouchTeam = from.team;
     state.ball.inboundPass = inboundPass;
+    state.ball.vx = 0;
+    state.ball.vy = 0;
+    state.ball.vz = 0;
+    state.ball.rimStyle = "";
     state.lastPasser = from.id;
     if (from.team === "blue") showMessage("PASS", 0.55);
   }
@@ -959,13 +1024,18 @@
     state.ball.time = 0;
     state.ball.duration = clamp(travelDist / 420, 0.28, 0.96);
     state.ball.made = made;
+    state.ball.perfectRelease = perfect;
     state.ball.points = points;
     state.ball.shooterId = shooter.id;
     state.ball.assistFrom = state.lastPasser;
     state.ball.lastTouchTeam = shooter.team;
     state.ball.inboundPass = false;
+    state.ball.vx = 0;
+    state.ball.vy = 0;
+    state.ball.vz = 0;
+    state.ball.rimStyle = "";
     shooter.stamina = Math.max(0.05, shooter.stamina - 0.14);
-    showMessage(made ? (perfect ? "GREEN!" : "GOOD RELEASE") : reachesHoop ? "SHOT UP" : "SHORT!", 0.75);
+    showMessage(perfect ? "GREEN!" : reachesHoop ? "SHOT UP" : "SHORT!", 0.75);
   }
 
   function autoBlockerFor(shooter, contest, charge) {
@@ -1010,6 +1080,9 @@
     state.ball.x = clamp(shooter.x + (Math.random() - 0.5) * 46, COURT.left + 28, COURT.right - 28);
     state.ball.y = clamp(shooter.y - 36 + Math.random() * 42, COURT.top + 42, COURT.bottom - 42);
     state.ball.z = 28;
+    state.ball.vx = 0;
+    state.ball.vy = 0;
+    state.ball.vz = 0;
     state.ball.looseDelay = 0.08;
     state.ball.lastTouchTeam = blocker.team;
     state.ball.inboundPass = false;
@@ -1078,8 +1151,12 @@
     state.ball.x = player.x;
     state.ball.y = player.y - 22;
     state.ball.z = 0;
+    state.ball.vx = 0;
+    state.ball.vy = 0;
+    state.ball.vz = 0;
     state.ball.lastTouchTeam = teamId;
     state.ball.inboundPass = false;
+    state.ball.rimStyle = "";
     state.possession = teamId;
     state.shotClock = 18;
     state.lastPasser = null;
@@ -1433,14 +1510,42 @@
       return;
     }
 
+    if (ball.mode === "rim") {
+      updateRimPhysics(dt);
+      return;
+    }
+
     if (ball.mode === "loose") {
       ball.looseDelay -= dt;
-      ball.z = Math.max(0, ball.z - dt * 38);
+      const hasMomentum = Math.abs(ball.vx) + Math.abs(ball.vy) + Math.abs(ball.vz) > 0.1;
+      if (hasMomentum) {
+        ball.x += ball.vx * dt;
+        ball.y += ball.vy * dt;
+        ball.z += ball.vz * dt;
+        ball.vz -= 310 * dt;
+        const drag = Math.pow(0.24, dt);
+        ball.vx *= drag;
+        ball.vy *= drag;
+        if (ball.z <= 0) {
+          ball.z = 0;
+          if (Math.abs(ball.vz) > 46) {
+            ball.vz = -ball.vz * 0.42;
+            ball.vx *= 0.72;
+            ball.vy *= 0.72;
+          } else {
+            ball.vx = 0;
+            ball.vy = 0;
+            ball.vz = 0;
+          }
+        }
+      } else {
+        ball.z = Math.max(0, ball.z - dt * 38);
+      }
       if (ballOutOfBounds()) {
         handleOutOfBounds();
         return;
       }
-      if (ball.looseDelay <= 0) {
+      if (ball.looseDelay <= 0 && ball.z <= 14) {
         const pickup = looseBallHitbox();
         let best = allPlayers()[0];
         let bestGap = Infinity;
@@ -1465,10 +1570,14 @@
     const shooter = playerById(ball.shooterId);
     if (!shooter) return;
     if (ball.points === 0) {
+      const travel = norm(ball.targetX - shooter.x, ball.targetY - shooter.y);
       ball.mode = "loose";
       ball.x = ball.targetX;
       ball.y = ball.targetY;
       ball.z = 18;
+      ball.vx = travel.x * 38;
+      ball.vy = travel.y * 38;
+      ball.vz = -24;
       ball.holderId = null;
       ball.looseDelay = 0.12;
       state.shotClock = 18;
@@ -1479,36 +1588,207 @@
       showMessage("SHORT!", 0.8);
       return;
     }
+
+    beginRimSequence(shooter);
+  }
+
+  function beginRimSequence(shooter) {
+    const ball = state.ball;
+    const roll = Math.random();
+    ball.mode = "rim";
+    ball.time = 0;
+    ball.rimSide = Math.random() < 0.5 ? -1 : 1;
+    ball.vx = 0;
+    ball.vy = 0;
+    ball.vz = 0;
+
     if (ball.made) {
-      shooter.stats.pts += ball.points;
-      state.score[shooter.team] += ball.points;
-      if (ball.assistFrom && ball.assistFrom !== shooter.id) {
-        const passer = playerById(ball.assistFrom);
-        if (passer && passer.team === shooter.team) passer.stats.ast += 1;
+      if (ball.perfectRelease && roll < 0.72) {
+        ball.rimStyle = "swish";
+      } else if (roll < 0.35) {
+        ball.rimStyle = "swish";
+      } else if (roll < 0.68) {
+        ball.rimStyle = "roll-in";
+      } else {
+        ball.rimStyle = "bounce-in";
       }
-      ball.mode = "dead";
-      state.pendingReset = { team: opponentTeam(shooter.team), t: 1.15 };
-      showMessage(`${ball.points} PTS`, 1.2);
     } else {
-      const hoop = shooter.team === "blue" ? COURT.hoopBlue : COURT.hoopRed;
-      ball.mode = "loose";
-      const towardCourt = shooter.team === "blue" ? 1 : -1;
-      const behindBaseline = Math.random() < 0.18;
-      ball.x = hoop.x + (Math.random() - 0.5) * (behindBaseline ? 250 : 150);
-      ball.y = behindBaseline
-        ? hoop.y - towardCourt * (45 + Math.random() * 55)
-        : hoop.y + towardCourt * (62 + Math.random() * 96);
-      ball.z = 30;
-      ball.holderId = null;
-      ball.lastTouchTeam = shooter.team;
-      ball.looseDelay = 0.18;
-      state.shotClock = 18;
-      if (ballOutOfBounds()) {
-        handleOutOfBounds();
-        return;
-      }
-      showMessage("REBOUND!", 1);
+      ball.rimStyle = roll < 0.34 ? "rim-out" : roll < 0.68 ? "spin-out" : "hard-rim";
     }
+
+    const durations = {
+      swish: 0.55,
+      "roll-in": 1.05,
+      "bounce-in": 0.92,
+      "rim-out": 0.78,
+      "spin-out": 1.02,
+      "hard-rim": 0.72,
+    };
+    ball.duration = durations[ball.rimStyle];
+    const hoop = shooter.team === "blue" ? COURT.hoopBlue : COURT.hoopRed;
+    const towardCourt = shooter.team === "blue" ? 1 : -1;
+    ball.x = hoop.x;
+    ball.y = hoop.y - towardCourt * 3;
+    ball.z = 13;
+  }
+
+  function updateRimPhysics(dt) {
+    const ball = state.ball;
+    const shooter = playerById(ball.shooterId);
+    if (!shooter) {
+      ball.mode = "loose";
+      return;
+    }
+
+    ball.time += dt;
+    const t = clamp(ball.time / ball.duration, 0, 1);
+    const hoop = shooter.team === "blue" ? COURT.hoopBlue : COURT.hoopRed;
+    const towardCourt = shooter.team === "blue" ? 1 : -1;
+    const side = ball.rimSide;
+
+    if (ball.rimStyle === "swish") {
+      if (t < 0.18) {
+        const p = smoothStep(t / 0.18);
+        ball.x = hoop.x + side * lerp(5, 1, p);
+        ball.y = hoop.y - towardCourt * lerp(5, 0, p);
+        ball.z = lerp(14, 9, p);
+      } else {
+        const p = smoothStep((t - 0.18) / 0.82);
+        ball.x = hoop.x + Math.sin(p * Math.PI * 2) * 1.5;
+        ball.y = hoop.y + towardCourt * lerp(0, 34, p);
+        ball.z = lerp(9, 0, p);
+      }
+    } else if (ball.rimStyle === "roll-in") {
+      if (t < 0.12) {
+        const p = smoothStep(t / 0.12);
+        ball.x = hoop.x + side * lerp(0, 20, p);
+        ball.y = hoop.y - towardCourt * lerp(3, 0, p);
+        ball.z = lerp(13, 10, p);
+      } else if (t < 0.72) {
+        const p = (t - 0.12) / 0.6;
+        const baseAngle = side > 0 ? 0 : Math.PI;
+        const angle = baseAngle + side * p * Math.PI * 3.6;
+        const radius = lerp(20, 7, smoothStep(p));
+        ball.x = hoop.x + Math.cos(angle) * radius;
+        ball.y = hoop.y + Math.sin(angle) * radius * 0.34;
+        ball.z = 9 + Math.abs(Math.sin(angle * 1.5)) * 2;
+      } else {
+        const p = smoothStep((t - 0.72) / 0.28);
+        const baseAngle = side > 0 ? 0 : Math.PI;
+        const endAngle = baseAngle + side * Math.PI * 3.6;
+        const edgeX = hoop.x + Math.cos(endAngle) * 7;
+        const edgeY = hoop.y + Math.sin(endAngle) * 7 * 0.34;
+        ball.x = lerp(edgeX, hoop.x, p);
+        ball.y = lerp(edgeY, hoop.y + towardCourt * 34, p);
+        ball.z = lerp(8, 0, p);
+      }
+    } else if (ball.rimStyle === "bounce-in") {
+      if (t < 0.28) {
+        const p = smoothStep(t / 0.28);
+        ball.x = hoop.x + side * lerp(0, 19, p);
+        ball.y = hoop.y - towardCourt * lerp(3, 1, p);
+        ball.z = 11 + Math.sin(p * Math.PI) * 11;
+      } else if (t < 0.54) {
+        const p = smoothStep((t - 0.28) / 0.26);
+        ball.x = hoop.x + side * lerp(19, -13, p);
+        ball.y = hoop.y + towardCourt * lerp(-1, 2, p);
+        ball.z = 10 + Math.sin(p * Math.PI) * 14;
+      } else if (t < 0.7) {
+        const p = smoothStep((t - 0.54) / 0.16);
+        ball.x = hoop.x + side * lerp(-13, 0, p);
+        ball.y = hoop.y + towardCourt * lerp(2, 3, p);
+        ball.z = 8 + Math.sin(p * Math.PI) * 5;
+      } else {
+        const p = smoothStep((t - 0.7) / 0.3);
+        ball.x = hoop.x;
+        ball.y = hoop.y + towardCourt * lerp(3, 34, p);
+        ball.z = lerp(8, 0, p);
+      }
+    } else if (ball.rimStyle === "rim-out") {
+      if (t < 0.26) {
+        const p = smoothStep(t / 0.26);
+        ball.x = hoop.x + side * lerp(0, 20, p);
+        ball.y = hoop.y;
+        ball.z = 11 + Math.sin(p * Math.PI) * 8;
+      } else {
+        const p = smoothStep((t - 0.26) / 0.74);
+        ball.x = hoop.x + side * lerp(20, 86, p);
+        ball.y = hoop.y + towardCourt * lerp(0, 72, p);
+        ball.z = 10 + Math.sin(p * Math.PI) * 35;
+      }
+    } else if (ball.rimStyle === "spin-out") {
+      if (t < 0.12) {
+        const p = smoothStep(t / 0.12);
+        ball.x = hoop.x + side * lerp(0, 19, p);
+        ball.y = hoop.y - towardCourt * lerp(3, 0, p);
+        ball.z = lerp(13, 10, p);
+      } else if (t < 0.66) {
+        const p = (t - 0.12) / 0.54;
+        const baseAngle = side > 0 ? 0 : Math.PI;
+        const angle = baseAngle + side * p * Math.PI * 4;
+        ball.x = hoop.x + Math.cos(angle) * 19;
+        ball.y = hoop.y + Math.sin(angle) * 6.5;
+        ball.z = 10 + Math.abs(Math.sin(angle)) * 2;
+      } else {
+        const p = smoothStep((t - 0.66) / 0.34);
+        ball.x = hoop.x + side * lerp(18, 72, p);
+        ball.y = hoop.y + towardCourt * lerp(2, 58, p);
+        ball.z = 10 + Math.sin(p * Math.PI) * 27;
+      }
+    } else {
+      if (t < 0.2) {
+        const p = smoothStep(t / 0.2);
+        ball.x = hoop.x + side * lerp(0, 7, p);
+        ball.y = hoop.y - towardCourt * lerp(3, 13, p);
+        ball.z = lerp(13, 10, p);
+      } else {
+        const p = smoothStep((t - 0.2) / 0.8);
+        ball.x = hoop.x + side * lerp(7, 50, p);
+        ball.y = hoop.y + towardCourt * lerp(-13, 82, p);
+        ball.z = 10 + Math.sin(p * Math.PI) * 43;
+      }
+    }
+
+    if (t < 1) return;
+    if (ball.made) {
+      completeMadeShot(shooter);
+    } else {
+      completeRimMiss(shooter, towardCourt);
+    }
+  }
+
+  function smoothStep(value) {
+    const t = clamp(value, 0, 1);
+    return t * t * (3 - 2 * t);
+  }
+
+  function completeMadeShot(shooter) {
+    const ball = state.ball;
+    shooter.stats.pts += ball.points;
+    state.score[shooter.team] += ball.points;
+    if (ball.assistFrom && ball.assistFrom !== shooter.id) {
+      const passer = playerById(ball.assistFrom);
+      if (passer && passer.team === shooter.team) passer.stats.ast += 1;
+    }
+    ball.mode = "dead";
+    ball.rimStyle = "";
+    state.pendingReset = { team: opponentTeam(shooter.team), t: 0.9 };
+    showMessage(`${ball.points} PTS`, 1.2);
+  }
+
+  function completeRimMiss(shooter, towardCourt) {
+    const ball = state.ball;
+    const side = ball.rimSide;
+    ball.mode = "loose";
+    ball.holderId = null;
+    ball.lastTouchTeam = shooter.team;
+    ball.looseDelay = 0.2;
+    ball.vx = side * (ball.rimStyle === "hard-rim" ? 48 : ball.rimStyle === "spin-out" ? 76 : 92);
+    ball.vy = towardCourt * (ball.rimStyle === "hard-rim" ? 126 : 88);
+    ball.vz = -46;
+    ball.rimStyle = "";
+    state.shotClock = 18;
+    showMessage("OFF THE RIM!", 1);
   }
 
   function updateRedAI(dt) {
@@ -1687,6 +1967,7 @@
   function drawHitboxes() {
     ctx.save();
     ctx.lineWidth = 2;
+    strokeCourtBorderHitbox();
     for (const p of allPlayers()) {
       strokeRectHitbox(playerBodyHitbox(p), p.team === "blue" ? "rgba(50,170,255,0.9)" : "rgba(255,70,70,0.9)");
     }
@@ -1696,7 +1977,7 @@
       if (holder) {
         strokeRectHitbox(heldBallHitbox(holder), "rgba(255,211,52,0.95)");
       }
-    } else if (state.ball.mode === "pass" || state.ball.mode === "shot") {
+    } else if (state.ball.mode === "pass" || state.ball.mode === "shot" || state.ball.mode === "rim") {
       strokeRectHitbox(movingBallHitbox(), "rgba(255,211,52,0.95)");
     } else if (state.ball.mode === "loose") {
       strokeRectHitbox(looseBallHitbox(), "rgba(255,211,52,0.78)", [6, 5]);
@@ -1743,6 +2024,22 @@
     ctx.restore();
   }
 
+  function strokeCourtBorderHitbox() {
+    const border = courtBorderHitbox();
+    ctx.save();
+    ctx.strokeStyle = "rgba(54,255,235,0.95)";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([10, 5]);
+    ctx.beginPath();
+    ctx.moveTo(border.topLeft, border.y);
+    ctx.lineTo(border.topRight, border.y);
+    ctx.lineTo(border.bottomRight, border.y + border.h);
+    ctx.lineTo(border.bottomLeft, border.y + border.h);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.restore();
+  }
+
   function frameForPlayer(p) {
     const speed = Math.hypot(p.vx, p.vy);
     if (state.ball.mode === "shot" && state.ball.shooterId === p.id) return 6;
@@ -1769,7 +2066,7 @@
     if (ball.mode === "dead") return;
     const x = ball.x;
     const y = ball.y - ball.z;
-    const r = ball.mode === "shot" ? 9 : 10;
+    const r = ball.mode === "shot" || ball.mode === "rim" ? 9 : 10;
     ctx.save();
     ctx.fillStyle = "rgba(0,0,0,0.28)";
     ctx.beginPath();
@@ -1785,6 +2082,39 @@
       ctx.fill();
       ctx.strokeStyle = "#3f1906";
       ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+    drawNetFront(ball);
+    ctx.restore();
+  }
+
+  function drawNetFront(ball) {
+    if (ball.mode !== "rim" || !ball.made) return;
+    const shooter = playerById(ball.shooterId);
+    if (!shooter) return;
+    const thresholds = { swish: 0.18, "roll-in": 0.72, "bounce-in": 0.7 };
+    const threshold = thresholds[ball.rimStyle];
+    const progress = clamp(ball.time / ball.duration, 0, 1);
+    if (typeof threshold !== "number" || progress < threshold) return;
+
+    const hoop = shooter.team === "blue" ? COURT.hoopBlue : COURT.hoopRed;
+    const towardCourt = shooter.team === "blue" ? 1 : -1;
+    const netEndY = hoop.y + towardCourt * 29;
+    ctx.save();
+    ctx.globalAlpha = 0.72;
+    ctx.strokeStyle = "#f4f6f2";
+    ctx.lineWidth = 1.2;
+    for (const offset of [-14, -7, 0, 7, 14]) {
+      ctx.beginPath();
+      ctx.moveTo(hoop.x + offset, hoop.y + towardCourt * 2);
+      ctx.lineTo(hoop.x + offset * 0.48, netEndY);
+      ctx.stroke();
+    }
+    for (const depth of [10, 19, 27]) {
+      const width = lerp(13, 7, depth / 29);
+      ctx.beginPath();
+      ctx.moveTo(hoop.x - width, hoop.y + towardCourt * depth);
+      ctx.lineTo(hoop.x + width, hoop.y + towardCourt * depth);
       ctx.stroke();
     }
     ctx.restore();
@@ -1879,7 +2209,7 @@
   }
 
   function hitboxConfigPanelRect() {
-    return { x: 42, y: 122, w: 456, h: 586 };
+    return { x: 42, y: 42, w: 456, h: 816 };
   }
 
   function hitboxConfigRowY(index) {
