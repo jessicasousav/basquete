@@ -61,17 +61,17 @@
     attemptGap: 8,
   };
   const HITBOX_DEFAULTS = {
-    playerBodyWidth: 34,
-    playerBodyHeight: 34,
+    playerBodyWidth: 42,
+    playerBodyHeight: 62,
     heldBallWidth: 26,
     heldBallHeight: 26,
     looseBallPickupWidth: 96,
     looseBallPickupHeight: 96,
     shotReleaseWidth: 32,
     shotReleaseHeight: 32,
-    playerBodyLeftOffset: -17,
-    playerBodyTopOffset: -17,
-    shadowTopOffset: -5,
+    playerBodyLeftOffset: 20,
+    playerBodyTopOffset: -70,
+    shadowTopOffset: -22,
     playerSeparationPadding: 0,
   };
   const HITBOXES = { ...HITBOX_DEFAULTS };
