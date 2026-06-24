@@ -69,7 +69,7 @@
     looseBallPickupHeight: 96,
     shotReleaseWidth: 32,
     shotReleaseHeight: 32,
-    playerBodyLeftOffset: 20,
+    playerBodyLeftOffset: -20,
     playerBodyTopOffset: -70,
     shadowTopOffset: -22,
     playerSeparationPadding: 0,
