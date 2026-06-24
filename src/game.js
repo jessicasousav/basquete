@@ -47,6 +47,8 @@
   const CONFIG_BUTTON = { x: 490, y: 56, w: 36, h: 36 };
   const PLAYER_SHADOW_RADIUS_Y = 7;
   const SHOOT_JUMP_MAX = 34;
+  const HITBOX_STORAGE_KEY = "pixelBasketballHitboxes";
+  const HITBOX_STORAGE_VERSION = 2;
   const DEFENSE_SPACE = {
     onBallCushion: 98,
     pressureCushion: 74,
@@ -262,11 +264,12 @@
 
   function loadHitboxSettings() {
     try {
-      const saved = JSON.parse(localStorage.getItem("pixelBasketballHitboxes") || "{}");
-      migrateSavedRadius("playerBodyRadius", "playerBodyWidth", "playerBodyHeight", saved);
-      migrateSavedRadius("heldBallRadius", "heldBallWidth", "heldBallHeight", saved);
-      migrateSavedRadius("looseBallPickupRadius", "looseBallPickupWidth", "looseBallPickupHeight", saved);
-      migrateSavedRadius("shotReleaseRadius", "shotReleaseWidth", "shotReleaseHeight", saved);
+      const stored = JSON.parse(localStorage.getItem(HITBOX_STORAGE_KEY) || "null");
+      if (!stored || stored.version !== HITBOX_STORAGE_VERSION || !stored.values) {
+        saveHitboxSettings();
+        return;
+      }
+      const saved = stored.values;
       for (const key of hitboxConfigKeys()) {
         const config = configForKey(key);
         if (config && typeof saved[key] === "number") {
@@ -276,15 +279,6 @@
     } catch {
       // Keep defaults when browser storage is unavailable or malformed.
     }
-  }
-
-  function migrateSavedRadius(radiusKey, widthKey, heightKey, saved) {
-    if (typeof saved[radiusKey] !== "number") return;
-    const widthConfig = configForKey(widthKey);
-    const heightConfig = configForKey(heightKey);
-    const diameter = saved[radiusKey] * 2;
-    if (widthConfig && typeof saved[widthKey] !== "number") HITBOXES[widthKey] = clamp(diameter, widthConfig.min, widthConfig.max);
-    if (heightConfig && typeof saved[heightKey] !== "number") HITBOXES[heightKey] = clamp(diameter, heightConfig.min, heightConfig.max);
   }
 
   function hitboxConfigKeys() {
@@ -297,7 +291,10 @@
 
   function saveHitboxSettings() {
     try {
-      localStorage.setItem("pixelBasketballHitboxes", JSON.stringify(HITBOXES));
+      localStorage.setItem(HITBOX_STORAGE_KEY, JSON.stringify({
+        version: HITBOX_STORAGE_VERSION,
+        values: HITBOXES,
+      }));
     } catch {
       // Gameplay should keep working even if storage is unavailable.
     }
