@@ -54,16 +54,20 @@
     attemptGap: 8,
   };
   const HITBOX_DEFAULTS = {
-    playerBodyWidth: 42,
-    playerBodyHeight: 62,
+    bluePlayerBodyWidth: 42,
+    bluePlayerBodyHeight: 62,
+    bluePlayerBodyLeftOffset: -20,
+    bluePlayerBodyTopOffset: -70,
+    redPlayerBodyWidth: 42,
+    redPlayerBodyHeight: 62,
+    redPlayerBodyLeftOffset: -30,
+    redPlayerBodyTopOffset: -70,
     heldBallWidth: 26,
     heldBallHeight: 26,
     looseBallPickupWidth: 96,
     looseBallPickupHeight: 96,
-    shotReleaseWidth: 32,
-    shotReleaseHeight: 32,
-    playerBodyLeftOffset: -20,
-    playerBodyTopOffset: -70,
+    shotReleaseWidth: 37,
+    shotReleaseHeight: 42,
     shadowTopOffset: -22,
     playerSeparationPadding: 0,
     courtBorderTopWidth: 442,
@@ -71,16 +75,27 @@
     courtBorderHeight: 544,
     courtBorderLeft: 48,
     courtBorderTop: 251,
+    blueBasketWidth: 40,
+    blueBasketHeight: 16,
+    blueBasketLeftOffset: 20,
+    blueBasketTopOffset: 15,
+    redBasketWidth: 40,
+    redBasketHeight: 16,
+    redBasketLeftOffset: -20,
+    redBasketTopOffset: -42,
   };
   const HITBOXES = { ...HITBOX_DEFAULTS };
   const NO_CONFIG_MAX = Number.POSITIVE_INFINITY;
   const HITBOX_CONFIGS = [
-    { type: "rect", widthKey: "playerBodyWidth", heightKey: "playerBodyHeight", label: "PLAYER BODY", min: 8, max: NO_CONFIG_MAX, step: 2 },
+    { type: "rect", widthKey: "bluePlayerBodyWidth", heightKey: "bluePlayerBodyHeight", label: "BLUE PLAYER", min: 8, max: NO_CONFIG_MAX, step: 2 },
+    { type: "single", key: "bluePlayerBodyLeftOffset", label: "BLUE PLAYER TOP-X", min: -80, max: NO_CONFIG_MAX, step: 1 },
+    { type: "single", key: "bluePlayerBodyTopOffset", label: "BLUE PLAYER TOP-Y", min: -80, max: NO_CONFIG_MAX, step: 1 },
+    { type: "rect", widthKey: "redPlayerBodyWidth", heightKey: "redPlayerBodyHeight", label: "RED PLAYER", min: 8, max: NO_CONFIG_MAX, step: 2 },
+    { type: "single", key: "redPlayerBodyLeftOffset", label: "RED PLAYER TOP-X", min: -80, max: NO_CONFIG_MAX, step: 1 },
+    { type: "single", key: "redPlayerBodyTopOffset", label: "RED PLAYER TOP-Y", min: -80, max: NO_CONFIG_MAX, step: 1 },
     { type: "rect", widthKey: "heldBallWidth", heightKey: "heldBallHeight", label: "HELD BALL", min: 8, max: NO_CONFIG_MAX, step: 2 },
     { type: "rect", widthKey: "looseBallPickupWidth", heightKey: "looseBallPickupHeight", label: "LOOSE PICKUP", min: 24, max: NO_CONFIG_MAX, step: 4 },
     { type: "rect", widthKey: "shotReleaseWidth", heightKey: "shotReleaseHeight", label: "SHOT RELEASE", min: 10, max: NO_CONFIG_MAX, step: 2 },
-    { type: "single", key: "playerBodyLeftOffset", label: "PLAYER TOP-X", min: -80, max: NO_CONFIG_MAX, step: 1 },
-    { type: "single", key: "playerBodyTopOffset", label: "PLAYER TOP-Y", min: -80, max: NO_CONFIG_MAX, step: 1 },
     { type: "single", key: "shadowTopOffset", label: "SHADOW TOP-Y", min: -36, max: NO_CONFIG_MAX, step: 1 },
     { type: "single", key: "playerSeparationPadding", label: "COLLISION PAD", min: 0, max: NO_CONFIG_MAX, step: 1 },
     { type: "single", key: "courtBorderTopWidth", label: "COURT TOP WIDTH", min: 240, max: NO_CONFIG_MAX, step: 2 },
@@ -88,6 +103,12 @@
     { type: "single", key: "courtBorderHeight", label: "COURT HEIGHT", min: 360, max: NO_CONFIG_MAX, step: 2 },
     { type: "single", key: "courtBorderLeft", label: "COURT TOP-X", min: 0, max: NO_CONFIG_MAX, step: 1 },
     { type: "single", key: "courtBorderTop", label: "COURT TOP-Y", min: 80, max: NO_CONFIG_MAX, step: 1 },
+    { type: "rect", widthKey: "blueBasketWidth", heightKey: "blueBasketHeight", label: "BLUE BASKET", min: 4, max: NO_CONFIG_MAX, step: 2 },
+    { type: "single", key: "blueBasketLeftOffset", label: "BLUE BASKET TOP-X", min: -160, max: NO_CONFIG_MAX, step: 1 },
+    { type: "single", key: "blueBasketTopOffset", label: "BLUE BASKET TOP-Y", min: -160, max: NO_CONFIG_MAX, step: 1 },
+    { type: "rect", widthKey: "redBasketWidth", heightKey: "redBasketHeight", label: "RED BASKET", min: 4, max: NO_CONFIG_MAX, step: 2 },
+    { type: "single", key: "redBasketLeftOffset", label: "RED BASKET TOP-X", min: -160, max: NO_CONFIG_MAX, step: 1 },
+    { type: "single", key: "redBasketTopOffset", label: "RED BASKET TOP-Y", min: -160, max: NO_CONFIG_MAX, step: 1 },
   ];
   loadHitboxSettings();
 
@@ -96,7 +117,7 @@
    * @typedef {{ pts: number, reb: number, ast: number, stl: number }} PlayerStats
    * @typedef {{ id: string, team: "blue" | "red", number: number, name: string, x: number, y: number, vx: number, vy: number, r: number, speed: number, stamina: number, boost: number, frameT: number, aiT: number, stealCooldown: number, blockCooldown: number, pressureT: number, stealLungeT: number, jumpOffset: number, defenseShade: number, defenseDepth: number, driftSeed: number, stats: PlayerStats }} Player
    * @typedef {{ id: "blue" | "red", name: string, color: string, players: Player[] }} Team
-   * @typedef {{ mode: "held" | "pass" | "shot" | "rim" | "loose" | "dead", x: number, y: number, z: number, vx: number, vy: number, vz: number, holderId: string | null, targetId: string | null, fromX: number, fromY: number, targetX: number, targetY: number, time: number, duration: number, made: boolean, perfectRelease: boolean, points: number, shooterId: string | null, assistFrom: string | null, looseDelay: number, lastTouchTeam: "blue" | "red", inboundPass: boolean, rimStyle: string, rimSide: number }} Ball
+   * @typedef {{ mode: "held" | "pass" | "shot" | "rim" | "loose" | "dead", x: number, y: number, z: number, vx: number, vy: number, vz: number, holderId: string | null, targetId: string | null, fromX: number, fromY: number, targetX: number, targetY: number, time: number, duration: number, made: boolean, perfectRelease: boolean, points: number, shooterId: string | null, assistFrom: string | null, looseDelay: number, outOfBoundsGrace: number, lastTouchTeam: "blue" | "red", inboundPass: boolean, rimStyle: string, rimSide: number }} Ball
    * @typedef {{ team: "blue" | "red", inbounderId: string, receiverId: string, phase: "retrieve" | "setup", pickupX: number, pickupY: number, spotX: number, spotY: number, wait: number }} InboundPlay
    * @typedef {{ joystickPointer: number | null, actionPointers: Map<number, string>, joyX: number, joyY: number, keys: Set<string>, shootStart: number, chargingShoot: boolean }} InputState
    * @typedef {{ x: number, y: number, w: number, h: number }} RectHitbox
@@ -162,7 +183,7 @@
       y,
       vx: 0,
       vy: 0,
-      r: Math.max(HITBOXES.playerBodyWidth, HITBOXES.playerBodyHeight) / 2,
+      r: Math.max(playerHitboxSettings(team).width, playerHitboxSettings(team).height) / 2,
       speed: team === "blue" ? 142 : 128,
       stamina: 0.86 + Math.random() * 0.1,
       boost: 0,
@@ -225,6 +246,7 @@
         shooterId: null,
         assistFrom: null,
         looseDelay: 0,
+        outOfBoundsGrace: 0,
         lastTouchTeam: "blue",
         inboundPass: false,
         rimStyle: "",
@@ -273,11 +295,12 @@
   function loadHitboxSettings() {
     try {
       const saved = JSON.parse(localStorage.getItem("pixelBasketballHitboxes") || "{}");
-      migrateSavedRadius("playerBodyRadius", "playerBodyWidth", "playerBodyHeight", saved);
+      migrateSavedPlayerSettings(saved);
       migrateSavedRadius("heldBallRadius", "heldBallWidth", "heldBallHeight", saved);
       migrateSavedRadius("looseBallPickupRadius", "looseBallPickupWidth", "looseBallPickupHeight", saved);
       migrateSavedRadius("shotReleaseRadius", "shotReleaseWidth", "shotReleaseHeight", saved);
       migrateSavedCourtWidth(saved);
+      migrateSavedBasketSettings(saved);
       for (const key of hitboxConfigKeys()) {
         const config = configForKey(key);
         if (config && typeof saved[key] === "number") {
@@ -286,6 +309,28 @@
       }
     } catch {
       // Keep defaults when browser storage is unavailable or malformed.
+    }
+  }
+
+  function migrateSavedPlayerSettings(saved) {
+    const legacyRadius = typeof saved.playerBodyRadius === "number" ? saved.playerBodyRadius * 2 : null;
+    const mappings = [
+      ["playerBodyWidth", "bluePlayerBodyWidth", "redPlayerBodyWidth", legacyRadius],
+      ["playerBodyHeight", "bluePlayerBodyHeight", "redPlayerBodyHeight", legacyRadius],
+      ["playerBodyLeftOffset", "bluePlayerBodyLeftOffset", "redPlayerBodyLeftOffset", null],
+      ["playerBodyTopOffset", "bluePlayerBodyTopOffset", "redPlayerBodyTopOffset", null],
+    ];
+    for (const [oldKey, blueKey, redKey, radiusFallback] of mappings) {
+      const legacyValue = typeof saved[oldKey] === "number" ? saved[oldKey] : radiusFallback;
+      if (typeof legacyValue !== "number") continue;
+      const blueConfig = configForKey(blueKey);
+      const redConfig = configForKey(redKey);
+      if (blueConfig && typeof saved[blueKey] !== "number") {
+        HITBOXES[blueKey] = clamp(legacyValue, blueConfig.min, blueConfig.max);
+      }
+      if (redConfig && typeof saved[redKey] !== "number") {
+        HITBOXES[redKey] = clamp(legacyValue, redConfig.min, redConfig.max);
+      }
     }
   }
 
@@ -307,6 +352,26 @@
     }
     if (bottomConfig && typeof saved.courtBorderBottomWidth !== "number") {
       HITBOXES.courtBorderBottomWidth = clamp(saved.courtBorderWidth, bottomConfig.min, bottomConfig.max);
+    }
+  }
+
+  function migrateSavedBasketSettings(saved) {
+    const mappings = [
+      ["basketWidth", "blueBasketWidth", "redBasketWidth"],
+      ["basketHeight", "blueBasketHeight", "redBasketHeight"],
+      ["basketLeftOffset", "blueBasketLeftOffset", "redBasketLeftOffset"],
+      ["basketTopOffset", "blueBasketTopOffset", "redBasketTopOffset"],
+    ];
+    for (const [oldKey, blueKey, redKey] of mappings) {
+      if (typeof saved[oldKey] !== "number") continue;
+      const blueConfig = configForKey(blueKey);
+      const redConfig = configForKey(redKey);
+      if (blueConfig && typeof saved[blueKey] !== "number") {
+        HITBOXES[blueKey] = clamp(saved[oldKey], blueConfig.min, blueConfig.max);
+      }
+      if (redConfig && typeof saved[redKey] !== "number") {
+        HITBOXES[redKey] = clamp(saved[oldKey], redConfig.min, redConfig.max);
+      }
     }
   }
 
@@ -352,10 +417,22 @@
     return { x: rect.x + rect.w / 2, y: rect.y + rect.h / 2 };
   }
 
-  function playerAnchorForBodyCenter(center) {
+  function playerHitboxSettings(playerOrTeam) {
+    const team = typeof playerOrTeam === "string" ? playerOrTeam : playerOrTeam.team;
+    const prefix = team === "blue" ? "bluePlayerBody" : "redPlayerBody";
     return {
-      x: center.x - HITBOXES.playerBodyLeftOffset - HITBOXES.playerBodyWidth / 2,
-      y: center.y - HITBOXES.playerBodyTopOffset - HITBOXES.playerBodyHeight / 2,
+      width: HITBOXES[`${prefix}Width`],
+      height: HITBOXES[`${prefix}Height`],
+      leftOffset: HITBOXES[`${prefix}LeftOffset`],
+      topOffset: HITBOXES[`${prefix}TopOffset`],
+    };
+  }
+
+  function playerAnchorForBodyCenter(center, playerOrTeam) {
+    const hitbox = playerHitboxSettings(playerOrTeam);
+    return {
+      x: center.x - hitbox.leftOffset - hitbox.width / 2,
+      y: center.y - hitbox.topOffset - hitbox.height / 2,
     };
   }
 
@@ -371,11 +448,12 @@
   }
 
   function playerBodyHitbox(player) {
+    const hitbox = playerHitboxSettings(player);
     return {
-      x: player.x + HITBOXES.playerBodyLeftOffset,
-      y: player.y + HITBOXES.playerBodyTopOffset,
-      w: HITBOXES.playerBodyWidth,
-      h: HITBOXES.playerBodyHeight,
+      x: player.x + hitbox.leftOffset,
+      y: player.y + hitbox.topOffset,
+      w: hitbox.width,
+      h: hitbox.height,
     };
   }
 
@@ -389,6 +467,21 @@
 
   function movingBallHitbox() {
     return rectFromCenter(state.ball.x, state.ball.y - state.ball.z, HITBOXES.heldBallWidth, HITBOXES.heldBallHeight);
+  }
+
+  function basketHitbox(teamId) {
+    const hoop = teamId === "blue" ? COURT.hoopBlue : COURT.hoopRed;
+    const prefix = teamId === "blue" ? "blueBasket" : "redBasket";
+    return {
+      x: hoop.x + HITBOXES[`${prefix}LeftOffset`],
+      y: hoop.y + HITBOXES[`${prefix}TopOffset`],
+      w: HITBOXES[`${prefix}Width`],
+      h: HITBOXES[`${prefix}Height`],
+    };
+  }
+
+  function basketContactPoint(teamId) {
+    return rectCenter(basketHitbox(teamId));
   }
 
   function courtBorderHitbox() {
@@ -684,6 +777,7 @@
     state.ball.vy = 0;
     state.ball.vz = 0;
     state.ball.looseDelay = 999;
+    state.ball.outOfBoundsGrace = 0;
     state.ball.lastTouchTeam = lastTouchForInbound(receivingTeam);
     state.ball.inboundPass = false;
     state.inbound = {
@@ -945,6 +1039,7 @@
     state.ball.vx = 0;
     state.ball.vy = 0;
     state.ball.vz = 0;
+    state.ball.outOfBoundsGrace = 0;
     state.ball.rimStyle = "";
     state.lastPasser = from.id;
     if (from.team === "blue") showMessage("PASS", 0.55);
@@ -960,7 +1055,7 @@
   }
 
   function idealShotCharge(shooter) {
-    const hoop = shooter.team === "blue" ? COURT.hoopBlue : COURT.hoopRed;
+    const hoop = basketContactPoint(shooter.team);
     const dist = distance(shooter, hoop);
     const minimumReach = 0.18 + clamp((dist * 0.96 - 62) / 520, 0, 1) * 0.82;
     const arcBonus = lerp(0.11, 0.035, clamp((dist - 130) / 420, 0, 1));
@@ -968,7 +1063,7 @@
   }
 
   function shotTimingWindow(shooter) {
-    const hoop = shooter.team === "blue" ? COURT.hoopBlue : COURT.hoopRed;
+    const hoop = basketContactPoint(shooter.team);
     const dist = distance(shooter, hoop);
     return lerp(0.105, 0.052, clamp((dist - 120) / 430, 0, 1));
   }
@@ -988,7 +1083,7 @@
 
   function startShot(shooter, charge) {
     if (state.ball.mode !== "held" || state.ball.holderId !== shooter.id) return;
-    const hoop = shooter.team === "blue" ? COURT.hoopBlue : COURT.hoopRed;
+    const hoop = basketContactPoint(shooter.team);
     const dist = distance(shooter, hoop);
     const dirToHoop = norm(hoop.x - shooter.x, hoop.y - shooter.y);
     const power = clamp((charge - 0.18) / 0.82, 0, 1);
@@ -1033,6 +1128,7 @@
     state.ball.vx = 0;
     state.ball.vy = 0;
     state.ball.vz = 0;
+    state.ball.outOfBoundsGrace = 0;
     state.ball.rimStyle = "";
     shooter.stamina = Math.max(0.05, shooter.stamina - 0.14);
     showMessage(perfect ? "GREEN!" : reachesHoop ? "SHOT UP" : "SHORT!", 0.75);
@@ -1084,6 +1180,7 @@
     state.ball.vy = 0;
     state.ball.vz = 0;
     state.ball.looseDelay = 0.08;
+    state.ball.outOfBoundsGrace = 0;
     state.ball.lastTouchTeam = blocker.team;
     state.ball.inboundPass = false;
     state.shotClock = 18;
@@ -1154,6 +1251,7 @@
     state.ball.vx = 0;
     state.ball.vy = 0;
     state.ball.vz = 0;
+    state.ball.outOfBoundsGrace = 0;
     state.ball.lastTouchTeam = teamId;
     state.ball.inboundPass = false;
     state.ball.rimStyle = "";
@@ -1380,7 +1478,7 @@
         const target = playerAnchorForBodyCenter({
           x: ballCenter.x + toHoop.x * 38 + lateral.x * jab,
           y: ballCenter.y + toHoop.y * 38 + lateral.y * jab,
-        });
+        }, defender);
         return {
           x: clamp(target.x, COURT.left + 24, COURT.right - 24),
           y: clamp(target.y, COURT.top + 42, COURT.bottom - 42),
@@ -1502,7 +1600,7 @@
       ball.x = lerp(ball.fromX, ball.targetX, t);
       ball.y = lerp(ball.fromY, ball.targetY, t);
       ball.z = Math.sin(Math.PI * t) * 96;
-      if (ballOutOfBounds()) {
+      if (ball.points === 0 && ballOutOfBounds()) {
         handleOutOfBounds();
         return;
       }
@@ -1517,6 +1615,7 @@
 
     if (ball.mode === "loose") {
       ball.looseDelay -= dt;
+      ball.outOfBoundsGrace = Math.max(0, ball.outOfBoundsGrace - dt);
       const hasMomentum = Math.abs(ball.vx) + Math.abs(ball.vy) + Math.abs(ball.vz) > 0.1;
       if (hasMomentum) {
         ball.x += ball.vx * dt;
@@ -1541,7 +1640,7 @@
       } else {
         ball.z = Math.max(0, ball.z - dt * 38);
       }
-      if (ballOutOfBounds()) {
+      if (ball.outOfBoundsGrace <= 0 && ballOutOfBounds()) {
         handleOutOfBounds();
         return;
       }
@@ -1580,6 +1679,7 @@
       ball.vz = -24;
       ball.holderId = null;
       ball.looseDelay = 0.12;
+      ball.outOfBoundsGrace = 0;
       state.shotClock = 18;
       if (ballOutOfBounds()) {
         handleOutOfBounds();
@@ -1625,10 +1725,11 @@
       "hard-rim": 0.72,
     };
     ball.duration = durations[ball.rimStyle];
-    const hoop = shooter.team === "blue" ? COURT.hoopBlue : COURT.hoopRed;
+    const basket = basketHitbox(shooter.team);
+    const hoop = rectCenter(basket);
     const towardCourt = shooter.team === "blue" ? 1 : -1;
     ball.x = hoop.x;
-    ball.y = hoop.y - towardCourt * 3;
+    ball.y = hoop.y - towardCourt * Math.max(2, basket.h * 0.2);
     ball.z = 13;
   }
 
@@ -1642,7 +1743,10 @@
 
     ball.time += dt;
     const t = clamp(ball.time / ball.duration, 0, 1);
-    const hoop = shooter.team === "blue" ? COURT.hoopBlue : COURT.hoopRed;
+    const basket = basketHitbox(shooter.team);
+    const hoop = rectCenter(basket);
+    const rimRadiusX = Math.max(4, basket.w / 2);
+    const rimRadiusY = Math.max(2, basket.h / 2);
     const towardCourt = shooter.team === "blue" ? 1 : -1;
     const side = ball.rimSide;
 
@@ -1661,23 +1765,24 @@
     } else if (ball.rimStyle === "roll-in") {
       if (t < 0.12) {
         const p = smoothStep(t / 0.12);
-        ball.x = hoop.x + side * lerp(0, 20, p);
-        ball.y = hoop.y - towardCourt * lerp(3, 0, p);
+        ball.x = hoop.x + side * lerp(0, rimRadiusX, p);
+        ball.y = hoop.y - towardCourt * lerp(rimRadiusY * 0.35, 0, p);
         ball.z = lerp(13, 10, p);
       } else if (t < 0.72) {
         const p = (t - 0.12) / 0.6;
         const baseAngle = side > 0 ? 0 : Math.PI;
         const angle = baseAngle + side * p * Math.PI * 3.6;
-        const radius = lerp(20, 7, smoothStep(p));
+        const radius = lerp(rimRadiusX, Math.max(3, rimRadiusX * 0.35), smoothStep(p));
         ball.x = hoop.x + Math.cos(angle) * radius;
-        ball.y = hoop.y + Math.sin(angle) * radius * 0.34;
+        ball.y = hoop.y + Math.sin(angle) * rimRadiusY * 0.85;
         ball.z = 9 + Math.abs(Math.sin(angle * 1.5)) * 2;
       } else {
         const p = smoothStep((t - 0.72) / 0.28);
         const baseAngle = side > 0 ? 0 : Math.PI;
         const endAngle = baseAngle + side * Math.PI * 3.6;
-        const edgeX = hoop.x + Math.cos(endAngle) * 7;
-        const edgeY = hoop.y + Math.sin(endAngle) * 7 * 0.34;
+        const innerRadius = Math.max(3, rimRadiusX * 0.35);
+        const edgeX = hoop.x + Math.cos(endAngle) * innerRadius;
+        const edgeY = hoop.y + Math.sin(endAngle) * rimRadiusY * 0.35;
         ball.x = lerp(edgeX, hoop.x, p);
         ball.y = lerp(edgeY, hoop.y + towardCourt * 34, p);
         ball.z = lerp(8, 0, p);
@@ -1685,18 +1790,18 @@
     } else if (ball.rimStyle === "bounce-in") {
       if (t < 0.28) {
         const p = smoothStep(t / 0.28);
-        ball.x = hoop.x + side * lerp(0, 19, p);
-        ball.y = hoop.y - towardCourt * lerp(3, 1, p);
+        ball.x = hoop.x + side * lerp(0, rimRadiusX * 0.95, p);
+        ball.y = hoop.y - towardCourt * lerp(rimRadiusY * 0.35, rimRadiusY * 0.12, p);
         ball.z = 11 + Math.sin(p * Math.PI) * 11;
       } else if (t < 0.54) {
         const p = smoothStep((t - 0.28) / 0.26);
-        ball.x = hoop.x + side * lerp(19, -13, p);
-        ball.y = hoop.y + towardCourt * lerp(-1, 2, p);
+        ball.x = hoop.x + side * lerp(rimRadiusX * 0.95, -rimRadiusX * 0.65, p);
+        ball.y = hoop.y + towardCourt * lerp(-rimRadiusY * 0.12, rimRadiusY * 0.25, p);
         ball.z = 10 + Math.sin(p * Math.PI) * 14;
       } else if (t < 0.7) {
         const p = smoothStep((t - 0.54) / 0.16);
-        ball.x = hoop.x + side * lerp(-13, 0, p);
-        ball.y = hoop.y + towardCourt * lerp(2, 3, p);
+        ball.x = hoop.x + side * lerp(-rimRadiusX * 0.65, 0, p);
+        ball.y = hoop.y + towardCourt * lerp(rimRadiusY * 0.25, rimRadiusY * 0.38, p);
         ball.z = 8 + Math.sin(p * Math.PI) * 5;
       } else {
         const p = smoothStep((t - 0.7) / 0.3);
@@ -1707,7 +1812,7 @@
     } else if (ball.rimStyle === "rim-out") {
       if (t < 0.26) {
         const p = smoothStep(t / 0.26);
-        ball.x = hoop.x + side * lerp(0, 20, p);
+        ball.x = hoop.x + side * lerp(0, rimRadiusX, p);
         ball.y = hoop.y;
         ball.z = 11 + Math.sin(p * Math.PI) * 8;
       } else {
@@ -1719,32 +1824,32 @@
     } else if (ball.rimStyle === "spin-out") {
       if (t < 0.12) {
         const p = smoothStep(t / 0.12);
-        ball.x = hoop.x + side * lerp(0, 19, p);
-        ball.y = hoop.y - towardCourt * lerp(3, 0, p);
+        ball.x = hoop.x + side * lerp(0, rimRadiusX * 0.95, p);
+        ball.y = hoop.y - towardCourt * lerp(rimRadiusY * 0.35, 0, p);
         ball.z = lerp(13, 10, p);
       } else if (t < 0.66) {
         const p = (t - 0.12) / 0.54;
         const baseAngle = side > 0 ? 0 : Math.PI;
         const angle = baseAngle + side * p * Math.PI * 4;
-        ball.x = hoop.x + Math.cos(angle) * 19;
-        ball.y = hoop.y + Math.sin(angle) * 6.5;
+        ball.x = hoop.x + Math.cos(angle) * rimRadiusX * 0.95;
+        ball.y = hoop.y + Math.sin(angle) * rimRadiusY * 0.82;
         ball.z = 10 + Math.abs(Math.sin(angle)) * 2;
       } else {
         const p = smoothStep((t - 0.66) / 0.34);
-        ball.x = hoop.x + side * lerp(18, 72, p);
+        ball.x = hoop.x + side * lerp(rimRadiusX * 0.9, 72, p);
         ball.y = hoop.y + towardCourt * lerp(2, 58, p);
         ball.z = 10 + Math.sin(p * Math.PI) * 27;
       }
     } else {
       if (t < 0.2) {
         const p = smoothStep(t / 0.2);
-        ball.x = hoop.x + side * lerp(0, 7, p);
-        ball.y = hoop.y - towardCourt * lerp(3, 13, p);
+        ball.x = hoop.x + side * lerp(0, rimRadiusX * 0.35, p);
+        ball.y = hoop.y - towardCourt * lerp(rimRadiusY * 0.35, rimRadiusY * 1.6, p);
         ball.z = lerp(13, 10, p);
       } else {
         const p = smoothStep((t - 0.2) / 0.8);
-        ball.x = hoop.x + side * lerp(7, 50, p);
-        ball.y = hoop.y + towardCourt * lerp(-13, 82, p);
+        ball.x = hoop.x + side * lerp(rimRadiusX * 0.35, 50, p);
+        ball.y = hoop.y + towardCourt * lerp(-rimRadiusY * 1.6, 82, p);
         ball.z = 10 + Math.sin(p * Math.PI) * 43;
       }
     }
@@ -1783,6 +1888,7 @@
     ball.holderId = null;
     ball.lastTouchTeam = shooter.team;
     ball.looseDelay = 0.2;
+    ball.outOfBoundsGrace = 0.45;
     ball.vx = side * (ball.rimStyle === "hard-rim" ? 48 : ball.rimStyle === "spin-out" ? 76 : 92);
     ball.vy = towardCourt * (ball.rimStyle === "hard-rim" ? 126 : 88);
     ball.vz = -46;
@@ -1968,6 +2074,8 @@
     ctx.save();
     ctx.lineWidth = 2;
     strokeCourtBorderHitbox();
+    strokeBasketHitbox("blue", "rgba(255,75,232,0.98)");
+    strokeBasketHitbox("red", "rgba(255,235,70,0.98)");
     for (const p of allPlayers()) {
       strokeRectHitbox(playerBodyHitbox(p), p.team === "blue" ? "rgba(50,170,255,0.9)" : "rgba(255,70,70,0.9)");
     }
@@ -1988,6 +2096,23 @@
       strokeRectHitbox(stealHitbox(defender), "rgba(255,180,48,0.48)", [4, 5]);
       strokeRectHitbox(blockHitbox(defender), "rgba(255,255,255,0.34)", [8, 5]);
     }
+    ctx.restore();
+  }
+
+  function strokeBasketHitbox(teamId, color) {
+    const hitbox = basketHitbox(teamId);
+    const center = rectCenter(hitbox);
+    strokeRectHitbox(hitbox, color, [5, 3]);
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.moveTo(center.x - 5, center.y);
+    ctx.lineTo(center.x + 5, center.y);
+    ctx.moveTo(center.x, center.y - 5);
+    ctx.lineTo(center.x, center.y + 5);
+    ctx.stroke();
     ctx.restore();
   }
 
@@ -2084,39 +2209,6 @@
       ctx.lineWidth = 2;
       ctx.stroke();
     }
-    drawNetFront(ball);
-    ctx.restore();
-  }
-
-  function drawNetFront(ball) {
-    if (ball.mode !== "rim" || !ball.made) return;
-    const shooter = playerById(ball.shooterId);
-    if (!shooter) return;
-    const thresholds = { swish: 0.18, "roll-in": 0.72, "bounce-in": 0.7 };
-    const threshold = thresholds[ball.rimStyle];
-    const progress = clamp(ball.time / ball.duration, 0, 1);
-    if (typeof threshold !== "number" || progress < threshold) return;
-
-    const hoop = shooter.team === "blue" ? COURT.hoopBlue : COURT.hoopRed;
-    const towardCourt = shooter.team === "blue" ? 1 : -1;
-    const netEndY = hoop.y + towardCourt * 29;
-    ctx.save();
-    ctx.globalAlpha = 0.72;
-    ctx.strokeStyle = "#f4f6f2";
-    ctx.lineWidth = 1.2;
-    for (const offset of [-14, -7, 0, 7, 14]) {
-      ctx.beginPath();
-      ctx.moveTo(hoop.x + offset, hoop.y + towardCourt * 2);
-      ctx.lineTo(hoop.x + offset * 0.48, netEndY);
-      ctx.stroke();
-    }
-    for (const depth of [10, 19, 27]) {
-      const width = lerp(13, 7, depth / 29);
-      ctx.beginPath();
-      ctx.moveTo(hoop.x - width, hoop.y + towardCourt * depth);
-      ctx.lineTo(hoop.x + width, hoop.y + towardCourt * depth);
-      ctx.stroke();
-    }
     ctx.restore();
   }
 
@@ -2209,11 +2301,11 @@
   }
 
   function hitboxConfigPanelRect() {
-    return { x: 42, y: 42, w: 456, h: 816 };
+    return { x: 42, y: 6, w: 456, h: 948 };
   }
 
   function hitboxConfigRowY(index) {
-    return hitboxConfigPanelRect().y + 76 + index * 54;
+    return hitboxConfigPanelRect().y + 74 + index * 36;
   }
 
   function drawHitboxConfigPanel() {
@@ -2253,21 +2345,21 @@
     const config = HITBOX_CONFIGS[index];
     const y = hitboxConfigRowY(index);
     ctx.fillStyle = index % 2 === 0 ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.075)";
-    ctx.fillRect(58, y - 27, 424, 46);
+    ctx.fillRect(58, y - 17, 424, 32);
     ctx.textAlign = "left";
-    ctx.font = "bold 13px 'Courier New', monospace";
+    ctx.font = "bold 11px 'Courier New', monospace";
     ctx.fillStyle = "#ffffff";
-    ctx.fillText(config.label, 74, y - 6);
-    ctx.font = "bold 10px 'Courier New', monospace";
+    ctx.fillText(config.label, 74, y - 5);
+    ctx.font = "bold 9px 'Courier New', monospace";
     ctx.fillStyle = "#9dc8f5";
     if (config.type === "rect") {
-      ctx.fillText(`W ${HITBOXES[config.widthKey]} / H ${HITBOXES[config.heightKey]}`, 74, y + 12);
+      ctx.fillText(`W ${HITBOXES[config.widthKey]} / H ${HITBOXES[config.heightKey]}`, 74, y + 10);
       drawConfigRectButton(configButtonRect(index, "wMinus"), "W-", "#262f3d", "#ffffff");
       drawConfigRectButton(configButtonRect(index, "wPlus"), "W+", "#1d5e35", "#ffffff");
       drawConfigRectButton(configButtonRect(index, "hMinus"), "H-", "#262f3d", "#ffffff");
       drawConfigRectButton(configButtonRect(index, "hPlus"), "H+", "#1d5e35", "#ffffff");
     } else {
-      ctx.fillText(`${HITBOXES[config.key]} PX`, 74, y + 12);
+      ctx.fillText(`${HITBOXES[config.key]} PX`, 74, y + 10);
       drawConfigRectButton(configButtonRect(index, "minus"), "-", "#262f3d", "#ffffff");
       drawConfigRectButton(configButtonRect(index, "plus"), "+", "#1d5e35", "#ffffff");
     }
@@ -2278,7 +2370,7 @@
     ctx.save();
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.font = `bold ${label.length > 1 ? 13 : 22}px 'Courier New', monospace`;
+    ctx.font = `bold ${label.length > 1 ? 11 : 18}px 'Courier New', monospace`;
     ctx.fillStyle = color;
     ctx.fillText(label, rect.x + rect.w / 2, rect.y + rect.h / 2 + 1);
     ctx.restore();
@@ -2300,14 +2392,14 @@
   }
 
   function configButtonRect(index, kind) {
-    const y = hitboxConfigRowY(index) - 22;
+    const y = hitboxConfigRowY(index) - 17;
     const rects = {
-      wMinus: { x: 294, y, w: 36, h: 34 },
-      wPlus: { x: 334, y, w: 36, h: 34 },
-      hMinus: { x: 390, y, w: 36, h: 34 },
-      hPlus: { x: 430, y, w: 36, h: 34 },
-      minus: { x: 342, y, w: 42, h: 34 },
-      plus: { x: 426, y, w: 42, h: 34 },
+      wMinus: { x: 294, y, w: 36, h: 29 },
+      wPlus: { x: 334, y, w: 36, h: 29 },
+      hMinus: { x: 390, y, w: 36, h: 29 },
+      hPlus: { x: 430, y, w: 36, h: 29 },
+      minus: { x: 342, y, w: 42, h: 29 },
+      plus: { x: 426, y, w: 42, h: 29 },
     };
     return rects[kind];
   }
