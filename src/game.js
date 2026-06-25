@@ -53,7 +53,7 @@
     chargingLungeGap: 68,
     attemptGap: 8,
   };
-  const HITBOX_SETTINGS_VERSION = 2;
+  const HITBOX_SETTINGS_VERSION = 3;
   const HITBOX_DEFAULTS = {
     bluePlayerBodyWidth: 42,
     bluePlayerBodyHeight: 62,
@@ -65,24 +65,24 @@
     redPlayerBodyTopOffset: -70,
     heldBallWidth: 26,
     heldBallHeight: 26,
-    looseBallPickupWidth: 96,
-    looseBallPickupHeight: 96,
+    looseBallPickupWidth: 74,
+    looseBallPickupHeight: 74,
     shotReleaseWidth: 37,
     shotReleaseHeight: 42,
     shadowTopOffset: -22,
     playerSeparationPadding: 0,
     courtBorderTopWidth: 442,
-    courtBorderBottomWidth: 608,
+    courtBorderBottomWidth: 680,
     courtBorderHeight: 544,
     courtBorderLeft: 48,
     courtBorderTop: 251,
-    blueBasketWidth: 40,
+    blueBasketWidth: 10,
     blueBasketHeight: 16,
-    blueBasketLeftOffset: -20,
+    blueBasketLeftOffset: -10,
     blueBasketTopOffset: 15,
-    redBasketWidth: 40,
+    redBasketWidth: 31,
     redBasketHeight: 16,
-    redBasketLeftOffset: -20,
+    redBasketLeftOffset: -16,
     redBasketTopOffset: -42,
   };
   const HITBOXES = { ...HITBOX_DEFAULTS };
@@ -309,7 +309,18 @@
         }
       }
       if ((saved.settingsVersion || 1) < HITBOX_SETTINGS_VERSION) {
-        HITBOXES.blueBasketLeftOffset = HITBOX_DEFAULTS.blueBasketLeftOffset;
+        const updatedDefaults = [
+          "looseBallPickupWidth",
+          "looseBallPickupHeight",
+          "courtBorderBottomWidth",
+          "blueBasketWidth",
+          "blueBasketLeftOffset",
+          "redBasketWidth",
+          "redBasketLeftOffset",
+        ];
+        for (const key of updatedDefaults) {
+          HITBOXES[key] = HITBOX_DEFAULTS[key];
+        }
         saveHitboxSettings();
       }
     } catch {
