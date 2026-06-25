@@ -53,6 +53,7 @@
     chargingLungeGap: 68,
     attemptGap: 8,
   };
+  const HITBOX_SETTINGS_VERSION = 2;
   const HITBOX_DEFAULTS = {
     bluePlayerBodyWidth: 42,
     bluePlayerBodyHeight: 62,
@@ -77,7 +78,7 @@
     courtBorderTop: 251,
     blueBasketWidth: 40,
     blueBasketHeight: 16,
-    blueBasketLeftOffset: 20,
+    blueBasketLeftOffset: -20,
     blueBasketTopOffset: 15,
     redBasketWidth: 40,
     redBasketHeight: 16,
@@ -307,6 +308,10 @@
           HITBOXES[key] = clamp(saved[key], config.min, config.max);
         }
       }
+      if ((saved.settingsVersion || 1) < HITBOX_SETTINGS_VERSION) {
+        HITBOXES.blueBasketLeftOffset = HITBOX_DEFAULTS.blueBasketLeftOffset;
+        saveHitboxSettings();
+      }
     } catch {
       // Keep defaults when browser storage is unavailable or malformed.
     }
@@ -385,7 +390,10 @@
 
   function saveHitboxSettings() {
     try {
-      localStorage.setItem("pixelBasketballHitboxes", JSON.stringify(HITBOXES));
+      localStorage.setItem("pixelBasketballHitboxes", JSON.stringify({
+        ...HITBOXES,
+        settingsVersion: HITBOX_SETTINGS_VERSION,
+      }));
     } catch {
       // Gameplay should keep working even if storage is unavailable.
     }
