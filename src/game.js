@@ -14,11 +14,13 @@
   const ASSET_PATHS = {
     court: "assets/generated/court-arena.png",
     blue: "assets/generated/player-blue.png",
+    blueIdle: "assets/generated/player-blue-idle.png",
     blueIdleBall: "assets/generated/player-blue-idle-ball.png",
     bluePass: "assets/generated/player-blue-pass.png",
     blueRunUp: "assets/generated/player-blue-run-up.png",
     blueRunUpBall: "assets/generated/player-blue-run-up-ball.png",
     blueRunDown: "assets/generated/player-blue-run-down.png",
+    blueRunDownBall: "assets/generated/player-blue-run-down-ball.png",
     blueRunSide: "assets/generated/player-blue-run-side.png",
     blueShoot: "assets/generated/player-blue-shoot.png",
     red: "assets/generated/player-red.png",
@@ -29,6 +31,7 @@
     redRun: "assets/generated/player-red-run.png",
     redIdle: "assets/generated/player-red-idle.png",
     redIdleBall: "assets/generated/player-red-idle-ball.png",
+    redPass: "assets/generated/player-red-pass.png",
     redShoot: "assets/generated/player-red-shoot.png",
     props: "assets/generated/props.png",
     icons: "assets/generated/ui-icons.png",
@@ -60,6 +63,7 @@
   const SHOT_MAX_DISTANCE = 582;
   const SHORT_SHOT_PICKUP_DELAY = 0.42;
   const BLUE_PASS_ANIMATION_MAX = 0.32;
+  const RED_PASS_ANIMATION_MAX = 0.32;
   const RED_SHOT_ANIMATION_MAX = 0.48;
   const RED_SHOT_RELEASE_FRAME = 6;
   const BLUE_SHOT_ANIMATION_MAX = 0.48;
@@ -74,6 +78,12 @@
   const ANIM_IDLE_CONFIRM = 0.12;
   const ANIM_AXIS_CONFIRM = 0.18;
   const ANIM_VERTICAL_FLIP_CONFIRM = 0.1;
+  const RED_ANIM_AXIS_SWITCH_RATIO = 2.35;
+  const RED_ANIM_AXIS_CONFIRM = 0.28;
+  const RED_ANIM_VERTICAL_FLIP_CONFIRM = 0.18;
+  const RED_ANIM_LOCK_AFTER_SWITCH = 0.16;
+  const RED_FACE_SWITCH_RATIO = 1.35;
+  const RED_FACE_CONFIRM = 0.12;
   const DEFENSE_SPACE = {
     onBallCushion: 98,
     pressureCushion: 74,
@@ -150,9 +160,9 @@
   loadHitboxSettings();
 
   /**
-   * @typedef {{ court: HTMLImageElement, blue: HTMLImageElement, blueIdleBall: HTMLImageElement, bluePass: HTMLImageElement, blueRunUp: HTMLImageElement, blueRunUpBall: HTMLImageElement, blueRunDown: HTMLImageElement, blueRunSide: HTMLImageElement, blueShoot: HTMLImageElement, red: HTMLImageElement, redRunUp: HTMLImageElement, redRunUpBall: HTMLImageElement, redRunDown: HTMLImageElement, redRunDownBall: HTMLImageElement, redRun: HTMLImageElement, redIdle: HTMLImageElement, redIdleBall: HTMLImageElement, redShoot: HTMLImageElement, props: HTMLImageElement, icons: HTMLImageElement }} AssetManifest
+   * @typedef {{ court: HTMLImageElement, blue: HTMLImageElement, blueIdle: HTMLImageElement, blueIdleBall: HTMLImageElement, bluePass: HTMLImageElement, blueRunUp: HTMLImageElement, blueRunUpBall: HTMLImageElement, blueRunDown: HTMLImageElement, blueRunDownBall: HTMLImageElement, blueRunSide: HTMLImageElement, blueShoot: HTMLImageElement, red: HTMLImageElement, redRunUp: HTMLImageElement, redRunUpBall: HTMLImageElement, redRunDown: HTMLImageElement, redRunDownBall: HTMLImageElement, redRun: HTMLImageElement, redIdle: HTMLImageElement, redIdleBall: HTMLImageElement, redPass: HTMLImageElement, redShoot: HTMLImageElement, props: HTMLImageElement, icons: HTMLImageElement }} AssetManifest
    * @typedef {{ pts: number, reb: number, ast: number, stl: number }} PlayerStats
-   * @typedef {{ id: string, team: "blue" | "red", number: number, name: string, x: number, y: number, vx: number, vy: number, r: number, speed: number, stamina: number, boost: number, frameT: number, aiT: number, stealCooldown: number, blockCooldown: number, pressureT: number, stealLungeT: number, jumpOffset: number, shotAirborne: boolean, shotAirVx: number, shotAirVy: number, animDirection: "idle" | "up" | "down" | "side", animCandidate: "idle" | "up" | "down" | "side", animCandidateT: number, facingX: -1 | 1, defenseShade: number, defenseDepth: number, driftSeed: number, stats: PlayerStats }} Player
+   * @typedef {{ id: string, team: "blue" | "red", number: number, name: string, x: number, y: number, vx: number, vy: number, r: number, speed: number, stamina: number, boost: number, frameT: number, aiT: number, stealCooldown: number, blockCooldown: number, pressureT: number, stealLungeT: number, jumpOffset: number, shotAirborne: boolean, shotAirVx: number, shotAirVy: number, animDirection: "idle" | "up" | "down" | "side", animCandidate: "idle" | "up" | "down" | "side", animCandidateT: number, animLockT: number, facingX: -1 | 1, facingCandidate: -1 | 1, facingCandidateT: number, defenseShade: number, defenseDepth: number, driftSeed: number, stats: PlayerStats }} Player
    * @typedef {{ id: "blue" | "red", name: string, color: string, players: Player[] }} Team
    * @typedef {{ mode: "held" | "pass" | "shot" | "rim" | "loose", x: number, y: number, z: number, vx: number, vy: number, vz: number, holderId: string | null, targetId: string | null, fromX: number, fromY: number, targetX: number, targetY: number, time: number, duration: number, made: boolean, perfectRelease: boolean, points: number, shooterId: string | null, assistFrom: string | null, looseDelay: number, outOfBoundsGrace: number, lastTouchTeam: "blue" | "red", inboundPass: boolean, rimStyle: string, rimSide: number }} Ball
    * @typedef {{ team: "blue" | "red", inbounderId: string, receiverId: string, phase: "retrieve" | "setup", pickupX: number, pickupY: number, spotX: number, spotY: number, wait: number }} InboundPlay
@@ -237,7 +247,10 @@
       animDirection: "idle",
       animCandidate: "idle",
       animCandidateT: 0,
+      animLockT: 0,
       facingX: team === "blue" ? -1 : 1,
+      facingCandidate: team === "blue" ? -1 : 1,
+      facingCandidateT: 0,
       defenseShade: Math.random() < 0.5 ? -1 : 1,
       defenseDepth: Math.random() * 2 - 1,
       driftSeed: Math.random() * Math.PI * 2,
@@ -890,9 +903,19 @@
   }
 
   function moveTowardInbound(player, tx, ty, speed, dt, allowOutside = false) {
-    const v = norm(tx - player.x, ty - player.y);
-    player.vx = v.x * speed;
-    player.vy = v.y * speed;
+    const dx = tx - player.x;
+    const dy = ty - player.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist < 0.75 || dt <= 0) {
+      player.vx = 0;
+      player.vy = 0;
+      return;
+    }
+    const v = { x: dx / dist, y: dy / dist };
+    const step = Math.min(speed * dt, dist);
+    const frameSpeed = step / dt;
+    player.vx = v.x * frameSpeed;
+    player.vy = v.y * frameSpeed;
     player.x += player.vx * dt;
     player.y += player.vy * dt;
     if (allowOutside) {
@@ -978,9 +1001,19 @@
   }
 
   function moveToward(p, tx, ty, speed, dt) {
-    const v = norm(tx - p.x, ty - p.y);
-    p.vx = v.x * speed;
-    p.vy = v.y * speed;
+    const dx = tx - p.x;
+    const dy = ty - p.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist < 0.75 || dt <= 0) {
+      p.vx = 0;
+      p.vy = 0;
+      return;
+    }
+    const v = { x: dx / dist, y: dy / dist };
+    const step = Math.min(speed * dt, dist);
+    const frameSpeed = step / dt;
+    p.vx = v.x * frameSpeed;
+    p.vy = v.y * frameSpeed;
     p.x += p.vx * dt;
     p.y += p.vy * dt;
     clampPlayer(p);
@@ -1129,7 +1162,7 @@
     state.ball.outOfBoundsGrace = 0;
     state.ball.rimStyle = "";
     state.lastPasser = from.id;
-    if (from.team === "blue") from.facingX = to.x < from.x ? -1 : 1;
+    from.facingX = to.x < from.x ? -1 : 1;
     if (from.team === "blue") showMessage("PASS", 0.55);
   }
 
@@ -1729,11 +1762,23 @@
   }
 
   function updatePlayerAnimationDirection(player, dt) {
+    player.animLockT = Math.max(0, player.animLockT - dt);
     const absX = Math.abs(player.vx);
     const absY = Math.abs(player.vy);
     const speed = Math.hypot(player.vx, player.vy);
-    const candidate = desiredAnimationDirection(player, absX, absY, speed);
-    if (candidate === "side" && absX > ANIM_FACE_SPEED) {
+    let candidate = desiredAnimationDirection(player, absX, absY, speed);
+    if (
+      player.team === "red" &&
+      player.animLockT > 0 &&
+      candidate !== "idle" &&
+      player.animDirection !== "idle" &&
+      animationAxis(candidate) !== animationAxis(player.animDirection)
+    ) {
+      candidate = player.animDirection;
+    }
+    updatePlayerFacing(player, candidate, absX, absY, dt);
+
+    if (player.team !== "red" && candidate === "side" && absX > ANIM_FACE_SPEED) {
       player.facingX = player.vx < 0 ? -1 : 1;
     }
 
@@ -1747,9 +1792,17 @@
       player.animCandidateT = 0;
     }
     player.animCandidateT += dt;
-    const confirmationTime = animationConfirmTime(player.animDirection, candidate);
+    const confirmationTime = animationConfirmTime(player, player.animDirection, candidate);
     if (player.animCandidateT < confirmationTime) return;
+    const previous = player.animDirection;
     player.animDirection = candidate;
+    if (
+      player.team === "red" &&
+      previous !== candidate &&
+      candidate !== "idle"
+    ) {
+      player.animLockT = RED_ANIM_LOCK_AFTER_SWITCH;
+    }
     player.frameT = 0;
     player.animCandidateT = 0;
   }
@@ -1758,8 +1811,9 @@
     if (speed <= ANIM_IDLE_SPEED) return "idle";
 
     const current = player.animDirection;
-    const sideIsStrong = absX >= absY * ANIM_AXIS_SWITCH_RATIO;
-    const verticalIsStrong = absY >= absX * ANIM_AXIS_SWITCH_RATIO;
+    const switchRatio = player.team === "red" ? RED_ANIM_AXIS_SWITCH_RATIO : ANIM_AXIS_SWITCH_RATIO;
+    const sideIsStrong = absX >= absY * switchRatio;
+    const verticalIsStrong = absY >= absX * switchRatio;
 
     if (current === "side") {
       if (!verticalIsStrong) return "side";
@@ -1777,11 +1831,45 @@
     return "side";
   }
 
-  function animationConfirmTime(current, candidate) {
+  function updatePlayerFacing(player, candidate, absX, absY, dt) {
+    if (candidate !== "side" || absX <= ANIM_FACE_SPEED) {
+      player.facingCandidateT = 0;
+      return;
+    }
+    const desired = player.vx < 0 ? -1 : 1;
+    if (player.team !== "red") {
+      player.facingX = desired;
+      player.facingCandidate = desired;
+      player.facingCandidateT = 0;
+      return;
+    }
+    if (absX < absY * RED_FACE_SWITCH_RATIO) {
+      player.facingCandidateT = 0;
+      return;
+    }
+    if (desired === player.facingX) {
+      player.facingCandidate = desired;
+      player.facingCandidateT = 0;
+      return;
+    }
+    if (desired !== player.facingCandidate) {
+      player.facingCandidate = desired;
+      player.facingCandidateT = 0;
+    }
+    player.facingCandidateT += dt;
+    if (player.facingCandidateT >= RED_FACE_CONFIRM) {
+      player.facingX = desired;
+      player.facingCandidateT = 0;
+    }
+  }
+
+  function animationConfirmTime(player, current, candidate) {
     if (candidate === "idle") return ANIM_IDLE_CONFIRM;
     if (current === "idle") return ANIM_FROM_IDLE_CONFIRM;
-    if (animationAxis(current) !== animationAxis(candidate)) return ANIM_AXIS_CONFIRM;
-    return ANIM_VERTICAL_FLIP_CONFIRM;
+    if (animationAxis(current) !== animationAxis(candidate)) {
+      return player.team === "red" ? RED_ANIM_AXIS_CONFIRM : ANIM_AXIS_CONFIRM;
+    }
+    return player.team === "red" ? RED_ANIM_VERTICAL_FLIP_CONFIRM : ANIM_VERTICAL_FLIP_CONFIRM;
   }
 
   function animationAxis(direction) {
@@ -2414,12 +2502,18 @@
     const bluePassImg = bluePassFrameIndex >= 0 ? assets.bluePass : null;
     const redShootFrameIndex = redShootFrame(p);
     const redShootImg = redShootFrameIndex >= 0 ? assets.redShoot : null;
+    const redPassFrameIndex = redPassFrame(p);
+    const redPassImg = redPassFrameIndex >= 0 ? assets.redPass : null;
+    const blueIdleFrameIndex = blueIdleFrame(p);
+    const blueIdleImg = blueIdleFrameIndex >= 0 ? assets.blueIdle : null;
     const blueIdleBallFrame = blueIdleBallFrameForPlayer(p);
     const blueIdleBallImg = blueIdleBallFrame >= 0 ? assets.blueIdleBall : null;
     const blueUpBallFrame = blueRunUpBallFrame(p);
     const blueUpBallImg = blueUpBallFrame >= 0 ? assets.blueRunUpBall : null;
     const blueUpFrame = blueRunUpFrame(p);
     const blueUpImg = blueUpFrame >= 0 ? assets.blueRunUp : null;
+    const blueDownBallFrame = blueRunDownBallFrame(p);
+    const blueDownBallImg = blueDownBallFrame >= 0 ? assets.blueRunDownBall : null;
     const blueDownFrame = blueRunDownFrame(p);
     const blueDownImg = blueDownFrame >= 0 ? assets.blueRunDown : null;
     const blueSideFrame = blueRunSideFrame(p);
@@ -2451,7 +2545,19 @@
     } else if (redShootImg && redShootImg.complete && redShootImg.naturalWidth) {
       drawShootingSprite(redShootImg, redShootFrameIndex, p, visualY);
     } else if (bluePassImg && bluePassImg.complete && bluePassImg.naturalWidth) {
-      drawPassingSprite(bluePassImg, bluePassFrameIndex, p, visualY, bluePassDirectionX());
+      drawPassingSprite(bluePassImg, bluePassFrameIndex, p, visualY, passDirectionX());
+    } else if (redPassImg && redPassImg.complete && redPassImg.naturalWidth) {
+      drawPassingSprite(redPassImg, redPassFrameIndex, p, visualY, passDirectionX());
+    } else if (blueIdleImg && blueIdleImg.complete && blueIdleImg.naturalWidth) {
+      const cw = blueIdleImg.naturalWidth / 4;
+      const ch = blueIdleImg.naturalHeight / 4;
+      const sx = (blueIdleFrameIndex % 4) * cw;
+      const sy = Math.floor(blueIdleFrameIndex / 4) * ch;
+      ctx.save();
+      ctx.translate(p.x, 0);
+      if (p.facingX < 0) ctx.scale(-1, 1);
+      ctx.drawImage(blueIdleImg, sx, sy, cw, ch, -38, visualY - 80, 76, 80);
+      ctx.restore();
     } else if (blueIdleBallImg && blueIdleBallImg.complete && blueIdleBallImg.naturalWidth) {
       const cw = blueIdleBallImg.naturalWidth / 4;
       const ch = blueIdleBallImg.naturalHeight / 4;
@@ -2468,6 +2574,12 @@
       const sx = (blueUpBallFrame % 4) * cw;
       const sy = Math.floor(blueUpBallFrame / 4) * ch;
       ctx.drawImage(blueUpBallImg, sx, sy, cw, ch, p.x - 38, visualY - 80, 76, 80);
+    } else if (blueDownBallImg && blueDownBallImg.complete && blueDownBallImg.naturalWidth) {
+      const cw = blueDownBallImg.naturalWidth / 4;
+      const ch = blueDownBallImg.naturalHeight / 4;
+      const sx = (blueDownBallFrame % 4) * cw;
+      const sy = Math.floor(blueDownBallFrame / 4) * ch;
+      ctx.drawImage(blueDownBallImg, sx, sy, cw, ch, p.x - 38, visualY - 80, 76, 80);
     } else if (blueUpImg && blueUpImg.complete && blueUpImg.naturalWidth) {
       const cw = blueUpImg.naturalWidth / 4;
       const ch = blueUpImg.naturalHeight / 4;
@@ -2550,7 +2662,6 @@
       ctx.fillStyle = p.team === "blue" ? "#116de5" : "#cf2727";
       ctx.fillRect(p.x - 14, visualY - 48, 28, 48);
     }
-    drawJerseyNumber(p, visualY);
     ctx.restore();
   }
 
@@ -2626,6 +2737,22 @@
     return Math.floor(p.frameT / 0.06) % 16;
   }
 
+  function blueRunDownBallFrame(p) {
+    if (p.team !== "blue") return -1;
+    const hasBall = state.ball.mode === "held" && state.ball.holderId === p.id;
+    if (!hasBall || p.animDirection !== "down" || isJumpCharging(p) || p.jumpOffset > 8) return -1;
+    return Math.floor(p.frameT / 0.06) % 16;
+  }
+
+  function blueIdleFrame(p) {
+    if (p.team !== "blue") return -1;
+    const hasBall = state.ball.mode === "held" && state.ball.holderId === p.id;
+    const afterShot = state.ball.mode === "shot" && state.ball.shooterId === p.id;
+    if (hasBall || isJumpCharging(p)) return -1;
+    if (!afterShot && (p.animDirection !== "idle" || p.jumpOffset > 8)) return -1;
+    return Math.floor(p.frameT / 0.09) % 16;
+  }
+
   function blueIdleBallFrameForPlayer(p) {
     if (p.team !== "blue") return -1;
     const hasBall = state.ball.mode === "held" && state.ball.holderId === p.id;
@@ -2638,7 +2765,9 @@
     return Boolean(
       holder &&
       holder.team === "blue" &&
-      (blueRunUpBallFrame(holder) >= 0 || blueIdleBallFrameForPlayer(holder) >= 0)
+      (blueRunUpBallFrame(holder) >= 0 ||
+        blueRunDownBallFrame(holder) >= 0 ||
+        blueIdleBallFrameForPlayer(holder) >= 0)
     );
   }
 
@@ -2650,8 +2779,16 @@
     return Math.min(15, Math.floor((state.ball.time / duration) * 16));
   }
 
-  function bluePassDirectionX() {
+  function passDirectionX() {
     return state.ball.targetX < state.ball.fromX ? -1 : 1;
+  }
+
+  function redPassFrame(p) {
+    if (p.team !== "red") return -1;
+    if (state.ball.mode !== "pass" || state.ball.assistFrom !== p.id) return -1;
+    const duration = Math.max(0.08, Math.min(RED_PASS_ANIMATION_MAX, state.ball.duration));
+    if (state.ball.time >= duration) return -1;
+    return Math.min(15, Math.floor((state.ball.time / duration) * 16));
   }
 
   function blueShootFrame(p) {
@@ -2765,16 +2902,6 @@
     const hasBall = state.ball.mode === "held" && state.ball.holderId === p.id;
     if (!hasBall || p.animDirection !== "idle" || p.jumpOffset > 8) return -1;
     return Math.floor(p.frameT / 0.09) % 16;
-  }
-
-  function drawJerseyNumber(p, visualY) {
-    ctx.font = "bold 9px 'Courier New', monospace";
-    ctx.textAlign = "center";
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = "rgba(0,0,0,0.75)";
-    ctx.fillStyle = "#ffffff";
-    ctx.strokeText(String(p.number), p.x, visualY - 40);
-    ctx.fillText(String(p.number), p.x, visualY - 40);
   }
 
   function drawBall() {
