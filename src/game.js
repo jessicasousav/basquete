@@ -17,11 +17,14 @@
     blueIdle: "assets/generated/player-blue-idle.png",
     blueIdleBall: "assets/generated/player-blue-idle-ball.png",
     bluePass: "assets/generated/player-blue-pass.png",
+    bluePassUp: "assets/generated/player-blue-pass-up.png",
     blueRunUp: "assets/generated/player-blue-run-up.png",
     blueRunUpBall: "assets/generated/player-blue-run-up-ball.png",
     blueRunDown: "assets/generated/player-blue-run-down.png",
     blueRunDownBall: "assets/generated/player-blue-run-down-ball.png",
     blueRunSide: "assets/generated/player-blue-run-side.png",
+    blueRunSideBall: "assets/generated/player-blue-run-side-ball.png",
+    blueBlock: "assets/generated/player-blue-block.png",
     blueShoot: "assets/generated/player-blue-shoot.png",
     red: "assets/generated/player-red.png",
     redRunUp: "assets/generated/player-red-run-up.png",
@@ -29,6 +32,7 @@
     redRunDown: "assets/generated/player-red-run-down.png",
     redRunDownBall: "assets/generated/player-red-run-down-ball.png",
     redRun: "assets/generated/player-red-run.png",
+    redRunSideBall: "assets/generated/player-red-run-side-ball.png",
     redIdle: "assets/generated/player-red-idle.png",
     redIdleBall: "assets/generated/player-red-idle-ball.png",
     redPass: "assets/generated/player-red-pass.png",
@@ -36,6 +40,14 @@
     props: "assets/generated/props.png",
     icons: "assets/generated/ui-icons.png",
   };
+  const AUDIO_PATHS = {
+    ambience: "assets/generated/arena-ambient.mp3",
+    score: "assets/generated/score-basket.mp3",
+  };
+  const SCORE_SOUND_START_SECONDS = 8;
+  const SCORE_SOUND_PLAY_SECONDS = 4;
+  const SCORE_SOUND_FADE_SECONDS = 0.5;
+  const SCORE_SOUND_VOLUME = 0.82;
 
   const PLAYER_NAMES = {
     b0: "#7 J. COLEMAN",
@@ -55,19 +67,25 @@
     { action: "STEAL", icon: 4, x: 452, y: 842, r: 58 },
   ];
   const JOYSTICK = { x: 108, y: 824, r: 72, knob: 35 };
+  const PAUSE_BUTTON = { x: 490, y: 14, w: 36, h: 36 };
   const CONFIG_BUTTON = { x: 490, y: 56, w: 36, h: 36 };
+  const PAUSE_MENU = { x: 112, y: 330, w: 316, h: 250 };
   const PLAYER_SHADOW_RADIUS_Y = 7;
   const SHOOT_JUMP_MAX = 34;
   const SHOOT_CHARGE_MS = 900;
   const SHOT_MIN_DISTANCE = 132;
   const SHOT_MAX_DISTANCE = 582;
+  const SHOT_REACH_FACTOR = 0.92;
+  const SHOT_PERFECT_WINDOW_RATIO = 0.34;
   const SHORT_SHOT_PICKUP_DELAY = 0.42;
   const BLUE_PASS_ANIMATION_MAX = 0.32;
+  const BLUE_PASS_UP_ANIMATION_SECONDS = 0.5;
   const RED_PASS_ANIMATION_MAX = 0.32;
   const RED_SHOT_ANIMATION_MAX = 0.48;
   const RED_SHOT_RELEASE_FRAME = 6;
   const BLUE_SHOT_ANIMATION_MAX = 0.48;
   const BLUE_SHOT_RELEASE_FRAME = 11;
+  const BLUE_BLOCK_ANIMATION_SECONDS = 0.5;
   const SHOOT_TAKEOFF_SPEED_FACTOR = 0.2;
   const SHOOT_AIR_CONTROL_FACTOR = 0.08;
   const SHOOT_AIR_RESPONSE = 0.015;
@@ -84,6 +102,10 @@
   const RED_ANIM_LOCK_AFTER_SWITCH = 0.16;
   const RED_FACE_SWITCH_RATIO = 1.35;
   const RED_FACE_CONFIRM = 0.12;
+  const DEFENSE_PAUSE_MIN = 0.22;
+  const DEFENSE_PAUSE_MAX = 0.9;
+  const DEFENSE_PAUSE_COOLDOWN_MIN = 0.55;
+  const DEFENSE_PAUSE_COOLDOWN_MAX = 1.55;
   const DEFENSE_SPACE = {
     onBallCushion: 98,
     pressureCushion: 74,
@@ -129,6 +151,7 @@
     redBasketLeftOffset: -16,
     redBasketTopOffset: -42,
     ballBounceHeight: 4,
+    ballSize: 10,
   };
   const HITBOXES = { ...HITBOX_DEFAULTS };
   const NO_CONFIG_MAX = Number.POSITIVE_INFINITY;
@@ -156,13 +179,14 @@
     { type: "single", key: "redBasketLeftOffset", label: "RED BASKET TOP-X", min: -160, max: NO_CONFIG_MAX, step: 1 },
     { type: "single", key: "redBasketTopOffset", label: "RED BASKET TOP-Y", min: -160, max: NO_CONFIG_MAX, step: 1 },
     { type: "single", key: "ballBounceHeight", label: "BALL BOUNCE HEIGHT", min: 0, max: NO_CONFIG_MAX, step: 1 },
+    { type: "single", key: "ballSize", label: "BALL SIZE", min: 2, max: NO_CONFIG_MAX, step: 1 },
   ];
   loadHitboxSettings();
 
   /**
-   * @typedef {{ court: HTMLImageElement, blue: HTMLImageElement, blueIdle: HTMLImageElement, blueIdleBall: HTMLImageElement, bluePass: HTMLImageElement, blueRunUp: HTMLImageElement, blueRunUpBall: HTMLImageElement, blueRunDown: HTMLImageElement, blueRunDownBall: HTMLImageElement, blueRunSide: HTMLImageElement, blueShoot: HTMLImageElement, red: HTMLImageElement, redRunUp: HTMLImageElement, redRunUpBall: HTMLImageElement, redRunDown: HTMLImageElement, redRunDownBall: HTMLImageElement, redRun: HTMLImageElement, redIdle: HTMLImageElement, redIdleBall: HTMLImageElement, redPass: HTMLImageElement, redShoot: HTMLImageElement, props: HTMLImageElement, icons: HTMLImageElement }} AssetManifest
+   * @typedef {{ court: HTMLImageElement, blue: HTMLImageElement, blueIdle: HTMLImageElement, blueIdleBall: HTMLImageElement, bluePass: HTMLImageElement, bluePassUp: HTMLImageElement, blueRunUp: HTMLImageElement, blueRunUpBall: HTMLImageElement, blueRunDown: HTMLImageElement, blueRunDownBall: HTMLImageElement, blueRunSide: HTMLImageElement, blueRunSideBall: HTMLImageElement, blueBlock: HTMLImageElement, blueShoot: HTMLImageElement, red: HTMLImageElement, redRunUp: HTMLImageElement, redRunUpBall: HTMLImageElement, redRunDown: HTMLImageElement, redRunDownBall: HTMLImageElement, redRun: HTMLImageElement, redRunSideBall: HTMLImageElement, redIdle: HTMLImageElement, redIdleBall: HTMLImageElement, redPass: HTMLImageElement, redShoot: HTMLImageElement, props: HTMLImageElement, icons: HTMLImageElement }} AssetManifest
    * @typedef {{ pts: number, reb: number, ast: number, stl: number }} PlayerStats
-   * @typedef {{ id: string, team: "blue" | "red", number: number, name: string, x: number, y: number, vx: number, vy: number, r: number, speed: number, stamina: number, boost: number, frameT: number, aiT: number, stealCooldown: number, blockCooldown: number, pressureT: number, stealLungeT: number, jumpOffset: number, shotAirborne: boolean, shotAirVx: number, shotAirVy: number, animDirection: "idle" | "up" | "down" | "side", animCandidate: "idle" | "up" | "down" | "side", animCandidateT: number, animLockT: number, facingX: -1 | 1, facingCandidate: -1 | 1, facingCandidateT: number, defenseShade: number, defenseDepth: number, driftSeed: number, stats: PlayerStats }} Player
+   * @typedef {{ id: string, team: "blue" | "red", number: number, name: string, x: number, y: number, vx: number, vy: number, r: number, speed: number, stamina: number, boost: number, frameT: number, aiT: number, stealCooldown: number, blockCooldown: number, blockAnimT: number, blockFacingX: -1 | 1, pressureT: number, stealLungeT: number, defensePauseT: number, defensePauseCooldown: number, jumpOffset: number, shotAirborne: boolean, shotAirVx: number, shotAirVy: number, animDirection: "idle" | "up" | "down" | "side", animCandidate: "idle" | "up" | "down" | "side", animCandidateT: number, animLockT: number, facingX: -1 | 1, facingCandidate: -1 | 1, facingCandidateT: number, defenseShade: number, defenseDepth: number, driftSeed: number, stats: PlayerStats }} Player
    * @typedef {{ id: "blue" | "red", name: string, color: string, players: Player[] }} Team
    * @typedef {{ mode: "held" | "pass" | "shot" | "rim" | "loose", x: number, y: number, z: number, vx: number, vy: number, vz: number, holderId: string | null, targetId: string | null, fromX: number, fromY: number, targetX: number, targetY: number, time: number, duration: number, made: boolean, perfectRelease: boolean, points: number, shooterId: string | null, assistFrom: string | null, looseDelay: number, outOfBoundsGrace: number, lastTouchTeam: "blue" | "red", inboundPass: boolean, rimStyle: string, rimSide: number }} Ball
    * @typedef {{ team: "blue" | "red", inbounderId: string, receiverId: string, phase: "retrieve" | "setup", pickupX: number, pickupY: number, spotX: number, spotY: number, wait: number }} InboundPlay
@@ -192,6 +216,23 @@
   let state = createGameState();
   let loaded = false;
   let lastTime = performance.now();
+  const ambienceAudio = typeof Audio === "function" ? new Audio(AUDIO_PATHS.ambience) : null;
+  const scoreAudio = typeof Audio === "function" ? new Audio(AUDIO_PATHS.score) : null;
+  let ambienceUnlocked = false;
+  let soundEnabled = loadSoundEnabled();
+  let scoreSoundStopTimer = null;
+  let scoreSoundFadeFrame = null;
+  let scoreSoundStartedAt = 0;
+  if (ambienceAudio) {
+    ambienceAudio.loop = true;
+    ambienceAudio.preload = "auto";
+    ambienceAudio.volume = 0.45;
+  }
+  if (scoreAudio) {
+    scoreAudio.preload = "auto";
+    scoreAudio.volume = 0;
+    scoreAudio.load();
+  }
 
   function createImage(src) {
     return new Promise((resolve) => {
@@ -210,6 +251,134 @@
       assets[key] = image;
     }
     loaded = true;
+  }
+
+  function unlockAmbienceAudio() {
+    if (!ambienceAudio) return;
+    ambienceUnlocked = true;
+    syncAmbienceAudio();
+  }
+
+  function syncAmbienceAudio() {
+    if (!ambienceAudio) return;
+    const shouldPlay = soundEnabled && ambienceUnlocked && !state.paused && !state.gameOver && !document.hidden;
+    if (!shouldPlay) {
+      if (!ambienceAudio.paused) ambienceAudio.pause();
+      return;
+    }
+    if (!ambienceAudio.paused) return;
+    const playPromise = ambienceAudio.play();
+    if (playPromise && typeof playPromise.catch === "function") {
+      playPromise.catch(() => {
+        ambienceUnlocked = false;
+      });
+    }
+  }
+
+  function loadSoundEnabled() {
+    try {
+      return localStorage.getItem("pixelBasketballSound") !== "off";
+    } catch {
+      return true;
+    }
+  }
+
+  function saveSoundEnabled() {
+    try {
+      localStorage.setItem("pixelBasketballSound", soundEnabled ? "on" : "off");
+    } catch {
+      // Audio should keep working even if browser storage is unavailable.
+    }
+  }
+
+  function toggleSound() {
+    soundEnabled = !soundEnabled;
+    saveSoundEnabled();
+    if (!soundEnabled) stopScoreSound();
+    syncAmbienceAudio();
+  }
+
+  function clearScoreSoundStopTimer() {
+    if (!scoreSoundStopTimer) return;
+    clearTimeout(scoreSoundStopTimer);
+    scoreSoundStopTimer = null;
+  }
+
+  function clearScoreSoundFadeFrame() {
+    if (!scoreSoundFadeFrame) return;
+    cancelAnimationFrame(scoreSoundFadeFrame);
+    scoreSoundFadeFrame = null;
+  }
+
+  function scoreSoundStartTime() {
+    if (!scoreAudio || !Number.isFinite(scoreAudio.duration) || scoreAudio.duration <= 0) {
+      return SCORE_SOUND_START_SECONDS;
+    }
+    return Math.min(SCORE_SOUND_START_SECONDS, Math.max(0, scoreAudio.duration - 0.2));
+  }
+
+  function scoreSoundVolumeAt(elapsedSeconds) {
+    const fadeSeconds = Math.min(SCORE_SOUND_FADE_SECONDS, SCORE_SOUND_PLAY_SECONDS / 2);
+    if (fadeSeconds <= 0) return SCORE_SOUND_VOLUME;
+    const fadeIn = clamp(elapsedSeconds / fadeSeconds, 0, 1);
+    const fadeOut = clamp((SCORE_SOUND_PLAY_SECONDS - elapsedSeconds) / fadeSeconds, 0, 1);
+    return SCORE_SOUND_VOLUME * Math.min(fadeIn, fadeOut);
+  }
+
+  function updateScoreSoundFade(now) {
+    if (!scoreAudio || scoreAudio.paused) {
+      scoreSoundFadeFrame = null;
+      return;
+    }
+    const elapsed = (now - scoreSoundStartedAt) / 1000;
+    scoreAudio.volume = scoreSoundVolumeAt(elapsed);
+    if (elapsed >= SCORE_SOUND_PLAY_SECONDS) {
+      stopScoreSound();
+      return;
+    }
+    scoreSoundFadeFrame = requestAnimationFrame(updateScoreSoundFade);
+  }
+
+  function startScoreSoundFade() {
+    if (!scoreAudio) return;
+    clearScoreSoundFadeFrame();
+    scoreSoundStartedAt = performance.now();
+    scoreAudio.volume = 0;
+    scoreSoundFadeFrame = requestAnimationFrame(updateScoreSoundFade);
+  }
+
+  function stopScoreSound() {
+    clearScoreSoundStopTimer();
+    clearScoreSoundFadeFrame();
+    if (!scoreAudio) return;
+    scoreAudio.pause();
+    scoreAudio.volume = 0;
+  }
+
+  function playScoreSound() {
+    if (!scoreAudio || !soundEnabled) return;
+    clearScoreSoundStopTimer();
+    clearScoreSoundFadeFrame();
+    scoreAudio.pause();
+    scoreAudio.volume = 0;
+    try {
+      scoreAudio.currentTime = scoreSoundStartTime();
+    } catch {
+      // Some browsers only allow seeking after metadata is ready.
+    }
+    const playPromise = scoreAudio.play();
+    startScoreSoundFade();
+    if (playPromise && typeof playPromise.catch === "function") {
+      playPromise.catch(() => {
+        clearScoreSoundFadeFrame();
+      });
+    }
+    scoreSoundStopTimer = setTimeout(stopScoreSound, SCORE_SOUND_PLAY_SECONDS * 1000);
+  }
+
+  function setPaused(paused) {
+    state.paused = paused;
+    syncAmbienceAudio();
   }
 
   function resizeCanvas() {
@@ -238,8 +407,12 @@
       aiT: Math.random() * 2,
       stealCooldown: 0.5 + Math.random() * 0.7,
       blockCooldown: 0.2 + Math.random() * 0.8,
+      blockAnimT: 0,
+      blockFacingX: team === "blue" ? 1 : -1,
       pressureT: 0,
       stealLungeT: 0,
+      defensePauseT: 0,
+      defensePauseCooldown: Math.random() * 0.9,
       jumpOffset: 0,
       shotAirborne: false,
       shotAirVx: 0,
@@ -622,6 +795,15 @@
     );
   }
 
+  function isPassRequiredHolder(player) {
+    return Boolean(
+      player &&
+      state.ball.mode === "held" &&
+      state.ball.holderId === player.id &&
+      state.shotPassRequiredId === player.id
+    );
+  }
+
   function updatePlayerJump(player, dt) {
     if (isJumpCharging(player)) {
       player.jumpOffset = lerp(player.jumpOffset, SHOOT_JUMP_MAX, 1 - Math.pow(0.001, dt));
@@ -922,7 +1104,7 @@
       player.x = clamp(player.x, COURT.left - 24, COURT.right + 24);
       player.y = clamp(player.y, COURT.top - 28, COURT.bottom + 28);
     } else {
-      clampPlayer(player);
+      clampPlayer(player, true);
     }
   }
 
@@ -1016,14 +1198,18 @@
     p.vy = v.y * frameSpeed;
     p.x += p.vx * dt;
     p.y += p.vy * dt;
-    clampPlayer(p);
+    clampPlayer(p, true);
   }
 
-  function clampPlayer(p) {
+  function clampPlayer(p, stopBlockedVelocity = false) {
     const border = courtBorderHitbox();
-    p.y = clamp(p.y, border.y + 34, border.y + border.h - 34);
+    const nextY = clamp(p.y, border.y + 34, border.y + border.h - 34);
+    if (stopBlockedVelocity && nextY !== p.y) p.vy = 0;
+    p.y = nextY;
     const bounds = courtHorizontalBounds(p.y);
-    p.x = clamp(p.x, bounds.left + 18, bounds.right - 18);
+    const nextX = clamp(p.x, bounds.left + 18, bounds.right - 18);
+    if (stopBlockedVelocity && nextX !== p.x) p.vx = 0;
+    p.x = nextX;
   }
 
   function formatClock(seconds) {
@@ -1152,7 +1338,9 @@
     state.ball.targetX = to.x;
     state.ball.targetY = to.y - 18;
     state.ball.time = 0;
-    state.ball.duration = clamp(distance(from, to) / 420, 0.18, 0.46);
+    state.ball.duration = isBluePassUpFromTo(from, to)
+      ? BLUE_PASS_UP_ANIMATION_SECONDS
+      : clamp(distance(from, to) / 420, 0.18, 0.46);
     state.ball.assistFrom = from.id;
     state.ball.lastTouchTeam = from.team;
     state.ball.inboundPass = inboundPass;
@@ -1164,6 +1352,10 @@
     state.lastPasser = from.id;
     from.facingX = to.x < from.x ? -1 : 1;
     if (from.team === "blue") showMessage("PASS", 0.55);
+  }
+
+  function isBluePassUpFromTo(from, to) {
+    return from.team === "blue" && to.y < from.y - 4;
   }
 
   function beginShootCharge() {
@@ -1196,11 +1388,11 @@
   function shotTimingWindow(shooter) {
     const hoop = basketContactPoint(shooter.team);
     const dist = distance(shooter, hoop);
-    return lerp(0.105, 0.052, clamp((dist - 120) / 430, 0, 1));
+    return lerp(0.13, 0.07, clamp((dist - 120) / 430, 0, 1));
   }
 
   function isPerfectRelease(shooter, charge) {
-    return Math.abs(charge - idealShotCharge(shooter)) <= shotTimingWindow(shooter) * 0.28;
+    return Math.abs(charge - idealShotCharge(shooter)) <= shotTimingWindow(shooter) * SHOT_PERFECT_WINDOW_RATIO;
   }
 
   function releaseShootCharge() {
@@ -1230,6 +1422,11 @@
   function requirePassAfterFullShotMeter(holder) {
     if (!holder || holder.team !== "blue" || state.ball.mode !== "held") return;
     state.shotPassRequiredId = holder.id;
+    holder.vx = 0;
+    holder.vy = 0;
+    holder.boost = 0;
+    holder.shotAirVx = 0;
+    holder.shotAirVy = 0;
     showMessage("PASS REQUIRED", 1.2);
   }
 
@@ -1241,7 +1438,7 @@
     const dirToHoop = norm(hoop.x - shooter.x, hoop.y - shooter.y);
     const power = clamp((charge - 0.18) / 0.82, 0, 1);
     const shotDistance = lerp(SHOT_MIN_DISTANCE, SHOT_MAX_DISTANCE, power);
-    const reachesHoop = shotDistance >= dist * 0.96;
+    const reachesHoop = shotDistance >= dist * SHOT_REACH_FACTOR;
     const targetX = reachesHoop ? hoop.x : shooter.x + dirToHoop.x * shotDistance;
     const targetY = reachesHoop ? hoop.y : shooter.y + dirToHoop.y * shotDistance;
     const travelDist = distance({ x: shooter.x, y: shooter.y }, { x: targetX, y: targetY });
@@ -1257,10 +1454,10 @@
     }
     const perfect = isPerfectRelease(shooter, charge);
     const timing = clamp(1 - Math.abs(charge - ideal) / timingWindow, 0, 1);
-    const staminaBonus = shooter.stamina * 0.14;
-    const distancePenalty = clamp((dist - 110) / 420, 0, 1) * 0.23;
-    const blockPenalty = shooter.team === "red" && manualBlockContest(shooter) ? 0.24 : 0;
-    const chance = clamp(0.18 + timing * 0.42 + staminaBonus - contest * 0.26 - distancePenalty - blockPenalty, 0.08, 0.82);
+    const staminaBonus = shooter.stamina * 0.16;
+    const distancePenalty = clamp((dist - 110) / 420, 0, 1) * 0.18;
+    const blockPenalty = shooter.team === "red" && manualBlockContest(shooter) ? 0.22 : 0;
+    const chance = clamp(0.24 + timing * 0.46 + staminaBonus - contest * 0.2 - distancePenalty - blockPenalty, 0.14, 0.88);
     const made = reachesHoop && (perfect || Math.random() < chance);
 
     state.ball.mode = "shot";
@@ -1297,7 +1494,7 @@
     if (gap > 0) return null;
     const betweenShooterAndHoop = defender.y < shooter.y + 18;
     const timingPenalty = clamp(1 - charge, 0, 0.55);
-    const chance = clamp(0.1 + contest * 0.3 + defender.stamina * 0.12 + timingPenalty - Math.max(0, gap) / 90, 0.08, 0.46);
+    const chance = clamp(0.07 + contest * 0.24 + defender.stamina * 0.09 + timingPenalty - Math.max(0, gap) / 90, 0.06, 0.38);
     if (!betweenShooterAndHoop && gap > -20) return null;
     return Math.random() < chance ? defender : null;
   }
@@ -1320,6 +1517,7 @@
   }
 
   function resolveBlockedShot(shooter, blocker) {
+    triggerBlueBlockAnimation(blocker, shooter);
     shooter.stamina = Math.max(0.04, shooter.stamina - 0.16);
     blocker.stamina = Math.max(0.05, blocker.stamina - 0.14);
     blocker.blockCooldown = 1.8;
@@ -1391,9 +1589,21 @@
     const p = controlledPlayer();
     const holder = state.ball.holderId ? playerById(state.ball.holderId) : null;
     const inRange = Boolean(holder && holder.team === "red" && hitboxesOverlap(blockHitbox(p), shotReleaseHitbox(holder)));
+    triggerBlueBlockAnimation(p, holder || state.ball);
     state.blockWindow = inRange ? 0.72 : 0.42;
     p.stamina = Math.max(0, p.stamina - 0.08);
     showMessage(inRange ? "BLOCK READY" : "CONTEST", 0.55);
+  }
+
+  function triggerBlueBlockAnimation(player, target) {
+    if (!player || player.team !== "blue") return;
+    const targetX = target && typeof target.x === "number" ? target.x : player.x + player.facingX;
+    const direction = targetX < player.x ? -1 : 1;
+    player.blockAnimT = BLUE_BLOCK_ANIMATION_SECONDS;
+    player.blockFacingX = direction;
+    player.facingX = direction;
+    player.facingCandidate = direction;
+    player.facingCandidateT = 0;
   }
 
   function giveBall(player, teamId) {
@@ -1526,8 +1736,11 @@
       p.boost = Math.max(0, p.boost - dt);
       p.stealCooldown = Math.max(0, p.stealCooldown - dt);
       p.blockCooldown = Math.max(0, p.blockCooldown - dt);
+      p.blockAnimT = Math.max(0, p.blockAnimT - dt);
       p.pressureT = Math.max(0, p.pressureT - dt);
       p.stealLungeT = Math.max(0, p.stealLungeT - dt);
+      p.defensePauseT = Math.max(0, p.defensePauseT - dt);
+      p.defensePauseCooldown = Math.max(0, p.defensePauseCooldown - dt);
       updatePlayerJump(p, dt);
       if (p.id !== controlled.id && p.shotAirborne && p.jumpOffset === 0) {
         resetShotAirState(p);
@@ -1537,8 +1750,15 @@
 
     const hasManualMove = Math.hypot(move.x, move.y) > 0.04;
     const controlledSpeed = controlled.speed * (controlled.boost > 0 ? 1.72 : 1);
+    const passRequired = isPassRequiredHolder(controlled);
     let controlledMoved = false;
-    if (isLooseBallRacer(controlled)) {
+    if (passRequired) {
+      controlled.vx = 0;
+      controlled.vy = 0;
+      controlled.boost = 0;
+      controlled.shotAirVx = 0;
+      controlled.shotAirVy = 0;
+    } else if (isLooseBallRacer(controlled)) {
       const target = looseBallRaceTarget(controlled);
       moveToward(controlled, target.x, target.y, looseBallRaceSpeed(controlled), dt);
       controlledMoved = true;
@@ -1557,8 +1777,8 @@
       controlled.x += controlled.vx * dt;
       controlled.y += controlled.vy * dt;
     }
-    if (hasManualMove && controlled.boost > 0) controlled.stamina = Math.max(0, controlled.stamina - dt * 0.18);
-    clampPlayer(controlled);
+    if (!passRequired && hasManualMove && controlled.boost > 0) controlled.stamina = Math.max(0, controlled.stamina - dt * 0.18);
+    clampPlayer(controlled, true);
     if (controlled.shotAirborne && controlled.jumpOffset === 0) {
       resetShotAirState(controlled);
     }
@@ -1597,6 +1817,7 @@
         }
         target = defenseTarget(p, mark, i, holder, "blue");
         speed = p.speed * (p.pressureT > 0 && isPrimary ? 0.9 : 0.7);
+        if (updateDefensivePause(p, target, isPrimary, holder, "blue", dt)) return;
       } else if (holder && holder.team === "blue" && holder.id !== p.id) {
         target = offenseTarget(p, i, holder, "blue");
       }
@@ -1640,9 +1861,59 @@
         }
         const target = defenseTarget(p, mark, i, holder, "red");
         const speed = p.speed * (p.stealLungeT > 0 && isPrimary ? 1.28 : p.pressureT > 0 && isPrimary ? 0.9 : 0.7);
+        if (updateDefensivePause(p, target, isPrimary, holder, "red", dt)) return;
         moveToward(p, target.x, target.y, speed, dt);
       }
     });
+  }
+
+  function updateDefensivePause(player, target, isPrimary, holder, defendingTeam, dt) {
+    if (state.possession === defendingTeam || state.ball.mode !== "held") return false;
+    const targetGap = distance(player, target);
+    const holderSpeed = holder ? Math.hypot(holder.vx, holder.vy) : 0;
+    const urgent =
+      state.shotClock < 7 ||
+      player.stealLungeT > 0 ||
+      player.pressureT > 0 ||
+      (isPrimary && holderSpeed > 38) ||
+      targetGap > (isPrimary ? 32 : 52);
+
+    if (urgent) {
+      player.defensePauseT = 0;
+      return false;
+    }
+
+    if (player.defensePauseT > 0) {
+      player.vx = 0;
+      player.vy = 0;
+      faceDefensiveMark(player, holder, target);
+      return true;
+    }
+
+    if (player.defensePauseCooldown > 0) return false;
+
+    const closeEnough = targetGap < (isPrimary ? 18 : 38);
+    const pauseChance = (isPrimary ? 0.55 : 0.85) * dt;
+    if (!closeEnough || Math.random() >= pauseChance) return false;
+
+    const maxPause = isPrimary ? 0.42 : DEFENSE_PAUSE_MAX;
+    const minPause = isPrimary ? DEFENSE_PAUSE_MIN : 0.36;
+    player.defensePauseT = minPause + Math.random() * (maxPause - minPause);
+    player.defensePauseCooldown = DEFENSE_PAUSE_COOLDOWN_MIN +
+      Math.random() * (DEFENSE_PAUSE_COOLDOWN_MAX - DEFENSE_PAUSE_COOLDOWN_MIN);
+    player.vx = 0;
+    player.vy = 0;
+    faceDefensiveMark(player, holder, target);
+    return true;
+  }
+
+  function faceDefensiveMark(player, holder, target) {
+    const focus = holder && holder.team !== player.team ? holder : target;
+    if (Math.abs(focus.x - player.x) > 8) {
+      player.facingX = focus.x < player.x ? -1 : 1;
+      player.facingCandidate = player.facingX;
+      player.facingCandidateT = 0;
+    }
   }
 
   function defenseTarget(defender, mark, index, holder, defendingTeam) {
@@ -2242,6 +2513,7 @@
       const passer = playerById(ball.assistFrom);
       if (passer && passer.team === shooter.team) passer.stats.ast += 1;
     }
+    playScoreSound();
     ball.rimStyle = "";
     state.pendingReset = null;
     const receivingTeam = opponentTeam(shooter.team);
@@ -2498,6 +2770,10 @@
     const frame = frameForPlayer(p);
     const blueShootFrameIndex = blueShootFrame(p);
     const blueShootImg = blueShootFrameIndex >= 0 ? assets.blueShoot : null;
+    const blueBlockFrameIndex = blueBlockFrame(p);
+    const blueBlockImg = blueBlockFrameIndex >= 0 ? assets.blueBlock : null;
+    const bluePassUpFrameIndex = bluePassUpFrame(p);
+    const bluePassUpImg = bluePassUpFrameIndex >= 0 ? assets.bluePassUp : null;
     const bluePassFrameIndex = bluePassFrame(p);
     const bluePassImg = bluePassFrameIndex >= 0 ? assets.bluePass : null;
     const redShootFrameIndex = redShootFrame(p);
@@ -2516,6 +2792,8 @@
     const blueDownBallImg = blueDownBallFrame >= 0 ? assets.blueRunDownBall : null;
     const blueDownFrame = blueRunDownFrame(p);
     const blueDownImg = blueDownFrame >= 0 ? assets.blueRunDown : null;
+    const blueSideBallFrame = blueRunSideBallFrame(p);
+    const blueSideBallImg = blueSideBallFrame >= 0 ? assets.blueRunSideBall : null;
     const blueSideFrame = blueRunSideFrame(p);
     const blueSideImg = blueSideFrame >= 0 ? assets.blueRunSide : null;
     const redUpBallFrame = redRunUpBallFrame(p);
@@ -2526,6 +2804,8 @@
     const redDownBallImg = redDownBallFrame >= 0 ? assets.redRunDownBall : null;
     const redDownFrame = redRunDownFrame(p);
     const redDownImg = redDownFrame >= 0 ? assets.redRunDown : null;
+    const redSideBallFrame = redRunSideBallFrame(p);
+    const redSideBallImg = redSideBallFrame >= 0 ? assets.redRunSideBall : null;
     const runFrame = redRunFrame(p);
     const runImg = runFrame >= 0 ? assets.redRun : null;
     const redIdleBallFrame = redIdleBallFrameForPlayer(p);
@@ -2540,10 +2820,14 @@
     ctx.ellipse(p.x, playerShadowCenterY(p), 22 * shadowScale, PLAYER_SHADOW_RADIUS_Y * shadowScale, 0, 0, Math.PI * 2);
     ctx.fill();
     if (p.team === "blue" && p.id === state.controlId) drawSelectionRing(p);
-    if (blueShootImg && blueShootImg.complete && blueShootImg.naturalWidth) {
+    if (blueBlockImg && blueBlockImg.complete && blueBlockImg.naturalWidth) {
+      drawBlockingSprite(blueBlockImg, blueBlockFrameIndex, p, visualY);
+    } else if (blueShootImg && blueShootImg.complete && blueShootImg.naturalWidth) {
       drawShootingSprite(blueShootImg, blueShootFrameIndex, p, visualY);
     } else if (redShootImg && redShootImg.complete && redShootImg.naturalWidth) {
       drawShootingSprite(redShootImg, redShootFrameIndex, p, visualY);
+    } else if (bluePassUpImg && bluePassUpImg.complete && bluePassUpImg.naturalWidth) {
+      drawPassingUpSprite(bluePassUpImg, bluePassUpFrameIndex, p, visualY);
     } else if (bluePassImg && bluePassImg.complete && bluePassImg.naturalWidth) {
       drawPassingSprite(bluePassImg, bluePassFrameIndex, p, visualY, passDirectionX());
     } else if (redPassImg && redPassImg.complete && redPassImg.naturalWidth) {
@@ -2592,6 +2876,16 @@
       const sx = (blueDownFrame % 4) * cw;
       const sy = Math.floor(blueDownFrame / 4) * ch;
       ctx.drawImage(blueDownImg, sx, sy, cw, ch, p.x - 38, visualY - 80, 76, 80);
+    } else if (blueSideBallImg && blueSideBallImg.complete && blueSideBallImg.naturalWidth) {
+      const cw = blueSideBallImg.naturalWidth / 4;
+      const ch = blueSideBallImg.naturalHeight / 4;
+      const sx = (blueSideBallFrame % 4) * cw;
+      const sy = Math.floor(blueSideBallFrame / 4) * ch;
+      ctx.save();
+      ctx.translate(p.x, 0);
+      if (p.facingX < 0) ctx.scale(-1, 1);
+      ctx.drawImage(blueSideBallImg, sx, sy, cw, ch, -38, visualY - 80, 76, 80);
+      ctx.restore();
     } else if (blueSideImg && blueSideImg.complete && blueSideImg.naturalWidth) {
       const cw = blueSideImg.naturalWidth / 4;
       const ch = blueSideImg.naturalHeight / 4;
@@ -2626,6 +2920,16 @@
       const sx = (redDownFrame % 4) * cw;
       const sy = Math.floor(redDownFrame / 4) * ch;
       ctx.drawImage(redDownImg, sx, sy, cw, ch, p.x - 38, visualY - 80, 76, 80);
+    } else if (redSideBallImg && redSideBallImg.complete && redSideBallImg.naturalWidth) {
+      const cw = redSideBallImg.naturalWidth / 4;
+      const ch = redSideBallImg.naturalHeight / 4;
+      const sx = (redSideBallFrame % 4) * cw;
+      const sy = Math.floor(redSideBallFrame / 4) * ch;
+      ctx.save();
+      ctx.translate(p.x, 0);
+      if (p.facingX < 0) ctx.scale(-1, 1);
+      ctx.drawImage(redSideBallImg, sx, sy, cw, ch, -42, visualY - 80, 84, 80);
+      ctx.restore();
     } else if (runImg && runImg.complete && runImg.naturalWidth) {
       const cw = runImg.naturalWidth / 4;
       const ch = runImg.naturalHeight / 4;
@@ -2678,6 +2982,14 @@
     ctx.restore();
   }
 
+  function drawPassingUpSprite(img, frameIndex, player, visualY) {
+    const cw = img.naturalWidth / 4;
+    const ch = img.naturalHeight / 4;
+    const sx = (frameIndex % 4) * cw;
+    const sy = Math.floor(frameIndex / 4) * ch;
+    ctx.drawImage(img, sx, sy, cw, ch, player.x - 69, visualY - 101, 128, 128);
+  }
+
   function drawShootingSprite(img, frameIndex, player, visualY) {
     const cw = img.naturalWidth / 4;
     const ch = img.naturalHeight / 4;
@@ -2688,6 +3000,19 @@
     ctx.translate(player.x, 0);
     if (mirrored) ctx.scale(-1, 1);
     ctx.drawImage(img, sx, sy, cw, ch, mirrored ? -59 : -37, visualY - 102, 96, 112);
+    ctx.restore();
+  }
+
+  function drawBlockingSprite(img, frameIndex, player, visualY) {
+    const cw = img.naturalWidth / 4;
+    const ch = img.naturalHeight / 4;
+    const sx = (frameIndex % 4) * cw;
+    const sy = Math.floor(frameIndex / 4) * ch;
+    const mirrored = player.blockFacingX < 0;
+    ctx.save();
+    ctx.translate(player.x, 0);
+    if (mirrored) ctx.scale(-1, 1);
+    ctx.drawImage(img, sx, sy, cw, ch, -48, visualY - 110, 96, 112);
     ctx.restore();
   }
 
@@ -2744,6 +3069,13 @@
     return Math.floor(p.frameT / 0.06) % 16;
   }
 
+  function blueRunSideBallFrame(p) {
+    if (p.team !== "blue") return -1;
+    const hasBall = state.ball.mode === "held" && state.ball.holderId === p.id;
+    if (!hasBall || p.animDirection !== "side" || isJumpCharging(p) || p.jumpOffset > 8) return -1;
+    return Math.floor(p.frameT / 0.055) % 16;
+  }
+
   function blueIdleFrame(p) {
     if (p.team !== "blue") return -1;
     const hasBall = state.ball.mode === "held" && state.ball.holderId === p.id;
@@ -2767,6 +3099,7 @@
       holder.team === "blue" &&
       (blueRunUpBallFrame(holder) >= 0 ||
         blueRunDownBallFrame(holder) >= 0 ||
+        blueRunSideBallFrame(holder) >= 0 ||
         blueIdleBallFrameForPlayer(holder) >= 0)
     );
   }
@@ -2774,9 +3107,23 @@
   function bluePassFrame(p) {
     if (p.team !== "blue") return -1;
     if (state.ball.mode !== "pass" || state.ball.assistFrom !== p.id) return -1;
+    if (isPassToUpCourt()) return -1;
     const duration = Math.max(0.08, Math.min(BLUE_PASS_ANIMATION_MAX, state.ball.duration));
     if (state.ball.time >= duration) return -1;
     return Math.min(15, Math.floor((state.ball.time / duration) * 16));
+  }
+
+  function bluePassUpFrame(p) {
+    if (p.team !== "blue") return -1;
+    if (state.ball.mode !== "pass" || state.ball.assistFrom !== p.id) return -1;
+    if (!isPassToUpCourt()) return -1;
+    const duration = Math.max(0.08, Math.min(BLUE_PASS_UP_ANIMATION_SECONDS, state.ball.duration));
+    if (state.ball.time >= duration) return -1;
+    return Math.min(15, Math.floor((state.ball.time / duration) * 16));
+  }
+
+  function isPassToUpCourt() {
+    return state.ball.targetY < state.ball.fromY - 4;
   }
 
   function passDirectionX() {
@@ -2802,6 +3149,12 @@
     if (state.ball.time >= duration) return -1;
     const followThroughFrames = 16 - BLUE_SHOT_RELEASE_FRAME;
     return Math.min(15, BLUE_SHOT_RELEASE_FRAME + Math.floor((state.ball.time / duration) * followThroughFrames));
+  }
+
+  function blueBlockFrame(p) {
+    if (p.team !== "blue" || p.blockAnimT <= 0) return -1;
+    const elapsed = BLUE_BLOCK_ANIMATION_SECONDS - p.blockAnimT;
+    return Math.min(15, Math.floor((elapsed / BLUE_BLOCK_ANIMATION_SECONDS) * 16));
   }
 
   function blueShotSpriteOwnsBall() {
@@ -2865,6 +3218,7 @@
       holder.team === "red" &&
       (redRunUpBallFrame(holder) >= 0 ||
         redRunDownBallFrame(holder) >= 0 ||
+        redRunSideBallFrame(holder) >= 0 ||
         redIdleBallFrameForPlayer(holder) >= 0)
     );
   }
@@ -2881,6 +3235,13 @@
     const hasBall = state.ball.mode === "held" && state.ball.holderId === p.id;
     if (!hasBall || p.animDirection !== "down" || p.jumpOffset > 8) return -1;
     return Math.floor(p.frameT / 0.06) % 16;
+  }
+
+  function redRunSideBallFrame(p) {
+    if (p.team !== "red") return -1;
+    const hasBall = state.ball.mode === "held" && state.ball.holderId === p.id;
+    if (!hasBall || p.animDirection !== "side" || p.jumpOffset > 8) return -1;
+    return Math.floor(p.frameT / 0.055) % 16;
   }
 
   function redRunFrame(p) {
@@ -2914,7 +3275,8 @@
     ) return;
     const x = ball.x;
     const y = ball.y - ball.z;
-    const r = ball.mode === "shot" || ball.mode === "rim" ? 9 : 10;
+    const baseRadius = Math.max(1, HITBOXES.ballSize);
+    const r = ball.mode === "shot" || ball.mode === "rim" ? baseRadius * 0.9 : baseRadius;
     ctx.save();
     ctx.fillStyle = "rgba(0,0,0,0.28)";
     ctx.beginPath();
@@ -2994,31 +3356,34 @@
   }
 
   function drawPauseButton() {
-    drawPanel(490, 14, 36, 36, "rgba(8,9,12,0.94)", "#747980");
+    const b = PAUSE_BUTTON;
+    drawPanel(b.x, b.y, b.w, b.h, "rgba(8,9,12,0.94)", "#747980");
     ctx.fillStyle = "#ffffff";
-    ctx.fillRect(502, 23, 6, 18);
-    ctx.fillRect(514, 23, 6, 18);
+    ctx.fillRect(b.x + 12, b.y + 9, 6, 18);
+    ctx.fillRect(b.x + 24, b.y + 9, 6, 18);
   }
 
   function drawConfigButton() {
     const b = CONFIG_BUTTON;
-    drawPanel(b.x, b.y, b.w, b.h, state.configOpen ? "rgba(18,64,106,0.96)" : "rgba(8,9,12,0.94)", "#747980");
+    const fill = state.configOpen ? "rgba(18,64,106,0.96)" : "rgba(8,9,12,0.94)";
+    drawPanel(b.x, b.y, b.w, b.h, fill, "#747980");
     ctx.save();
-    ctx.strokeStyle = "#ffffff";
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(b.x + 9, b.y + 12);
-    ctx.lineTo(b.x + 27, b.y + 12);
-    ctx.moveTo(b.x + 9, b.y + 20);
-    ctx.lineTo(b.x + 27, b.y + 20);
-    ctx.moveTo(b.x + 9, b.y + 28);
-    ctx.lineTo(b.x + 27, b.y + 28);
-    ctx.stroke();
+    ctx.translate(b.x + b.w / 2, b.y + b.h / 2);
     ctx.fillStyle = "#ffffff";
+    for (let i = 0; i < 8; i += 1) {
+      ctx.save();
+      ctx.rotate((Math.PI / 4) * i);
+      ctx.fillRect(-2, -16, 4, 7);
+      ctx.restore();
+    }
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 4;
     ctx.beginPath();
-    ctx.arc(b.x + 15, b.y + 12, 3, 0, Math.PI * 2);
-    ctx.arc(b.x + 23, b.y + 20, 3, 0, Math.PI * 2);
-    ctx.arc(b.x + 18, b.y + 28, 3, 0, Math.PI * 2);
+    ctx.arc(0, 0, 10, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = fill;
+    ctx.beginPath();
+    ctx.arc(0, 0, 4, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
   }
@@ -3206,7 +3571,7 @@
     const elapsed = clamp(shootChargeProgress(), 0, 1);
     const holder = state.ball.holderId ? playerById(state.ball.holderId) : null;
     const targetCharge = holder ? idealShotCharge(holder) : 0.68;
-    const perfectWindow = holder ? shotTimingWindow(holder) * 0.28 : 0.025;
+    const perfectWindow = holder ? shotTimingWindow(holder) * SHOT_PERFECT_WINDOW_RATIO : 0.032;
     const x = 330;
     const y = 610;
     const trackX = x + 5;
@@ -3241,17 +3606,45 @@
     ctx.restore();
   }
 
+  function pauseResumeRect() {
+    return { x: PAUSE_MENU.x + 42, y: PAUSE_MENU.y + 82, w: PAUSE_MENU.w - 84, h: 40 };
+  }
+
+  function pauseRestartRect() {
+    return { x: PAUSE_MENU.x + 42, y: PAUSE_MENU.y + 132, w: PAUSE_MENU.w - 84, h: 40 };
+  }
+
+  function pauseVolumeRect() {
+    return { x: PAUSE_MENU.x + 42, y: PAUSE_MENU.y + 182, w: PAUSE_MENU.w - 84, h: 40 };
+  }
+
+  function drawPauseMenuButton(rect, label, fill, stroke) {
+    drawPanel(rect.x, rect.y, rect.w, rect.h, fill, stroke);
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 15px 'Courier New', monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(label, rect.x + rect.w / 2, rect.y + rect.h / 2 + 1);
+    ctx.textBaseline = "alphabetic";
+  }
+
   function drawPauseOverlay() {
     ctx.save();
-    ctx.fillStyle = "rgba(0,0,0,0.54)";
+    ctx.fillStyle = "rgba(0,0,0,0.62)";
     ctx.fillRect(0, 0, W, H);
-    drawPanel(112, 360, 316, 150, "rgba(9,14,23,0.96)", "#ffffff");
+    drawPanel(PAUSE_MENU.x, PAUSE_MENU.y, PAUSE_MENU.w, PAUSE_MENU.h, "rgba(9,14,23,0.97)", "#ffffff");
     ctx.textAlign = "center";
     ctx.fillStyle = "#ffffff";
     ctx.font = "bold 28px 'Courier New', monospace";
-    ctx.fillText("PAUSED", W / 2, 420);
-    ctx.font = "bold 13px 'Courier New', monospace";
-    ctx.fillText("TAP PAUSE OR PRESS P", W / 2, 462);
+    ctx.fillText("PAUSED", W / 2, PAUSE_MENU.y + 52);
+    drawPauseMenuButton(pauseResumeRect(), "RESUME", "rgba(18,68,113,0.96)", "#9dc8f5");
+    drawPauseMenuButton(pauseRestartRect(), "RESTART", "rgba(96,28,30,0.96)", "#ff9a9a");
+    drawPauseMenuButton(
+      pauseVolumeRect(),
+      soundEnabled ? "VOLUME ON" : "VOLUME OFF",
+      soundEnabled ? "rgba(25,98,54,0.96)" : "rgba(70,64,76,0.96)",
+      soundEnabled ? "#a7eab7" : "#c8bfd4"
+    );
     ctx.restore();
   }
 
@@ -3412,11 +3805,13 @@
   }
 
   function pointerDown(event) {
+    unlockAmbienceAudio();
     const pt = screenPoint(event);
     canvas.setPointerCapture(event.pointerId);
     if (handleConfigPointerDown(pt)) return;
-    if (pt.x >= 488 && pt.x <= 528 && pt.y >= 12 && pt.y <= 54) {
-      state.paused = !state.paused;
+    if (state.paused && handlePauseMenuPointerDown(pt)) return;
+    if (pointInRect(pt, PAUSE_BUTTON)) {
+      setPaused(!state.paused);
       return;
     }
     if (state.gameOver) {
@@ -3433,6 +3828,22 @@
       input.actionPointers.set(event.pointerId, button.action);
       performAction(button.action, true);
     }
+  }
+
+  function handlePauseMenuPointerDown(pt) {
+    if (pointInRect(pt, pauseResumeRect())) {
+      setPaused(false);
+      return true;
+    }
+    if (pointInRect(pt, pauseRestartRect())) {
+      restartGame();
+      return true;
+    }
+    if (pointInRect(pt, pauseVolumeRect())) {
+      toggleSound();
+      return true;
+    }
+    return true;
   }
 
   function handleConfigPointerDown(pt) {
@@ -3505,6 +3916,7 @@
   }
 
   function keyDown(event) {
+    unlockAmbienceAudio();
     if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space"].includes(event.code)) {
       event.preventDefault();
     }
@@ -3513,7 +3925,7 @@
       return;
     }
     input.keys.add(event.code);
-    if (event.code === "KeyP") state.paused = !state.paused;
+    if (event.code === "KeyP" && !state.paused) setPaused(true);
     if (event.code === "KeyC") {
       state.configOpen = !state.configOpen;
     }
@@ -3538,12 +3950,14 @@
     state.showHitboxes = showHitboxes;
     input.chargingShoot = false;
     input.actionPointers.clear();
+    syncAmbienceAudio();
   }
 
   function loop(now) {
     const dt = (now - lastTime) / 1000;
     lastTime = now;
     update(dt);
+    syncAmbienceAudio();
     draw();
     requestAnimationFrame(loop);
   }
@@ -3556,6 +3970,7 @@
   canvas.addEventListener("pointercancel", pointerUp);
   window.addEventListener("keydown", keyDown, { passive: false });
   window.addEventListener("keyup", keyUp);
+  document.addEventListener("visibilitychange", syncAmbienceAudio);
 
   loadAssets();
   requestAnimationFrame(loop);
