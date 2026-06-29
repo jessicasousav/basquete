@@ -18,6 +18,7 @@
     blueIdleBall: "assets/generated/player-blue-idle-ball.png",
     bluePass: "assets/generated/player-blue-pass.png",
     bluePassUp: "assets/generated/player-blue-pass-up.png",
+    bluePassUpRight: "assets/generated/player-blue-pass-up-right.png",
     blueRunUp: "assets/generated/player-blue-run-up.png",
     blueRunUpBall: "assets/generated/player-blue-run-up-ball.png",
     blueRunDown: "assets/generated/player-blue-run-down.png",
@@ -41,13 +42,33 @@
     icons: "assets/generated/ui-icons.png",
   };
   const AUDIO_PATHS = {
-    ambience: "assets/generated/arena-ambient.mp3",
+    ambientSongs: [
+      "assets/generated/ambient-song-1.mp3",
+      "assets/generated/ambient-song-2.mp3",
+      "assets/generated/ambient-song-3.mp3",
+      "assets/generated/ambient-song-4.mp3",
+    ],
     score: "assets/generated/score-basket.mp3",
+    bounce: "assets/generated/ball-bounce.mp3",
+    launch: "assets/generated/ball-launch-whoosh.mp3",
+    basketHit: "assets/generated/basket-hit.mp3",
+    shoeSqueak: "assets/generated/shoe-squeak.mp3",
   };
+  const DEFAULT_AMBIENT_MUSIC_VOLUME = 0.03;
   const SCORE_SOUND_START_SECONDS = 8;
   const SCORE_SOUND_PLAY_SECONDS = 4;
   const SCORE_SOUND_FADE_SECONDS = 0.5;
   const SCORE_SOUND_VOLUME = 0.82;
+  const BALL_BOUNCE_SOUND_START_SECONDS = 2.4;
+  const BALL_BOUNCE_SOUND_PLAY_SECONDS = 0.5;
+  const BALL_BOUNCE_SOUND_VOLUME = 0.58;
+  const BALL_BOUNCE_SOUND_PLAYBACK_RATE = 0.8;
+  const BALL_BOUNCE_MIN_INTERVAL_SECONDS = 0.28;
+  const BALL_LAUNCH_SOUND_VOLUME = 0.62;
+  const BASKET_HIT_SOUND_PLAY_SECONDS = 0.7;
+  const BASKET_HIT_SOUND_VOLUME = 0.7;
+  const SHOE_SQUEAK_SOUND_PLAY_SECONDS = 0.6;
+  const SHOE_SQUEAK_SOUND_VOLUME = 0.54;
 
   const PLAYER_NAMES = {
     b0: "#7 J. COLEMAN",
@@ -69,7 +90,11 @@
   const JOYSTICK = { x: 108, y: 824, r: 72, knob: 35 };
   const PAUSE_BUTTON = { x: 490, y: 14, w: 36, h: 36 };
   const CONFIG_BUTTON = { x: 490, y: 56, w: 36, h: 36 };
-  const PAUSE_MENU = { x: 112, y: 330, w: 316, h: 250 };
+  const PAUSE_MENU = { x: 112, y: 330, w: 316, h: 300 };
+  const HITBOX_CONFIG_PANEL_HEIGHT_RATIO = 0.7;
+  const HITBOX_CONFIG_ROW_HEIGHT = 36;
+  const HITBOX_CONFIG_HEADER_HEIGHT = 68;
+  const HITBOX_CONFIG_FOOTER_HEIGHT = 68;
   const PLAYER_SHADOW_RADIUS_Y = 7;
   const SHOOT_JUMP_MAX = 34;
   const SHOOT_CHARGE_MS = 900;
@@ -79,7 +104,8 @@
   const SHOT_PERFECT_WINDOW_RATIO = 0.34;
   const SHORT_SHOT_PICKUP_DELAY = 0.42;
   const BLUE_PASS_ANIMATION_MAX = 0.32;
-  const BLUE_PASS_UP_ANIMATION_SECONDS = 0.5;
+  const BLUE_PASS_UP_ANIMATION_SECONDS = 0.1667;
+  const BLUE_IDLE_BALL_FRAME_SECONDS = 0.028125;
   const RED_PASS_ANIMATION_MAX = 0.32;
   const RED_SHOT_ANIMATION_MAX = 0.48;
   const RED_SHOT_RELEASE_FRAME = 6;
@@ -151,7 +177,7 @@
     redBasketLeftOffset: -16,
     redBasketTopOffset: -42,
     ballBounceHeight: 4,
-    ballSize: 10,
+    ballSize: 18,
   };
   const HITBOXES = { ...HITBOX_DEFAULTS };
   const NO_CONFIG_MAX = Number.POSITIVE_INFINITY;
@@ -184,13 +210,13 @@
   loadHitboxSettings();
 
   /**
-   * @typedef {{ court: HTMLImageElement, blue: HTMLImageElement, blueIdle: HTMLImageElement, blueIdleBall: HTMLImageElement, bluePass: HTMLImageElement, bluePassUp: HTMLImageElement, blueRunUp: HTMLImageElement, blueRunUpBall: HTMLImageElement, blueRunDown: HTMLImageElement, blueRunDownBall: HTMLImageElement, blueRunSide: HTMLImageElement, blueRunSideBall: HTMLImageElement, blueBlock: HTMLImageElement, blueShoot: HTMLImageElement, red: HTMLImageElement, redRunUp: HTMLImageElement, redRunUpBall: HTMLImageElement, redRunDown: HTMLImageElement, redRunDownBall: HTMLImageElement, redRun: HTMLImageElement, redRunSideBall: HTMLImageElement, redIdle: HTMLImageElement, redIdleBall: HTMLImageElement, redPass: HTMLImageElement, redShoot: HTMLImageElement, props: HTMLImageElement, icons: HTMLImageElement }} AssetManifest
+   * @typedef {{ court: HTMLImageElement, blue: HTMLImageElement, blueIdle: HTMLImageElement, blueIdleBall: HTMLImageElement, bluePass: HTMLImageElement, bluePassUp: HTMLImageElement, bluePassUpRight: HTMLImageElement, blueRunUp: HTMLImageElement, blueRunUpBall: HTMLImageElement, blueRunDown: HTMLImageElement, blueRunDownBall: HTMLImageElement, blueRunSide: HTMLImageElement, blueRunSideBall: HTMLImageElement, blueBlock: HTMLImageElement, blueShoot: HTMLImageElement, red: HTMLImageElement, redRunUp: HTMLImageElement, redRunUpBall: HTMLImageElement, redRunDown: HTMLImageElement, redRunDownBall: HTMLImageElement, redRun: HTMLImageElement, redRunSideBall: HTMLImageElement, redIdle: HTMLImageElement, redIdleBall: HTMLImageElement, redPass: HTMLImageElement, redShoot: HTMLImageElement, props: HTMLImageElement, icons: HTMLImageElement }} AssetManifest
    * @typedef {{ pts: number, reb: number, ast: number, stl: number }} PlayerStats
    * @typedef {{ id: string, team: "blue" | "red", number: number, name: string, x: number, y: number, vx: number, vy: number, r: number, speed: number, stamina: number, boost: number, frameT: number, aiT: number, stealCooldown: number, blockCooldown: number, blockAnimT: number, blockFacingX: -1 | 1, pressureT: number, stealLungeT: number, defensePauseT: number, defensePauseCooldown: number, jumpOffset: number, shotAirborne: boolean, shotAirVx: number, shotAirVy: number, animDirection: "idle" | "up" | "down" | "side", animCandidate: "idle" | "up" | "down" | "side", animCandidateT: number, animLockT: number, facingX: -1 | 1, facingCandidate: -1 | 1, facingCandidateT: number, defenseShade: number, defenseDepth: number, driftSeed: number, stats: PlayerStats }} Player
    * @typedef {{ id: "blue" | "red", name: string, color: string, players: Player[] }} Team
    * @typedef {{ mode: "held" | "pass" | "shot" | "rim" | "loose", x: number, y: number, z: number, vx: number, vy: number, vz: number, holderId: string | null, targetId: string | null, fromX: number, fromY: number, targetX: number, targetY: number, time: number, duration: number, made: boolean, perfectRelease: boolean, points: number, shooterId: string | null, assistFrom: string | null, looseDelay: number, outOfBoundsGrace: number, lastTouchTeam: "blue" | "red", inboundPass: boolean, rimStyle: string, rimSide: number }} Ball
    * @typedef {{ team: "blue" | "red", inbounderId: string, receiverId: string, phase: "retrieve" | "setup", pickupX: number, pickupY: number, spotX: number, spotY: number, wait: number }} InboundPlay
-   * @typedef {{ joystickPointer: number | null, actionPointers: Map<number, string>, joyX: number, joyY: number, keys: Set<string>, shootStart: number, chargingShoot: boolean }} InputState
+   * @typedef {{ joystickPointer: number | null, songVolumePointer: number | null, configScrollPointer: number | null, configScrollLastY: number, actionPointers: Map<number, string>, joyX: number, joyY: number, keys: Set<string>, shootStart: number, chargingShoot: boolean }} InputState
    * @typedef {{ x: number, y: number, w: number, h: number }} RectHitbox
    * @typedef {{ teams: { blue: Team, red: Team }, ball: Ball, possession: "blue" | "red", controlId: string, defenseSwitchT: number, score: { blue: number, red: number }, quarter: number, gameTime: number, shotClock: number, paused: boolean, gameOver: boolean, message: string, messageT: number, pendingReset: null | { team: "blue" | "red", t: number }, inbound: InboundPlay | null, blockWindow: number, lastPasser: string | null, shotPassRequiredId: string | null, looseBallRace: null | { blue: string, red: string }, showHitboxes: boolean, configOpen: boolean }} GameState
    */
@@ -204,6 +230,9 @@
   /** @type {InputState} */
   const input = {
     joystickPointer: null,
+    songVolumePointer: null,
+    configScrollPointer: null,
+    configScrollLastY: 0,
     actionPointers: new Map(),
     joyX: 0,
     joyY: 0,
@@ -216,22 +245,76 @@
   let state = createGameState();
   let loaded = false;
   let lastTime = performance.now();
-  const ambienceAudio = typeof Audio === "function" ? new Audio(AUDIO_PATHS.ambience) : null;
+  let configScrollY = 0;
+  const ambientMusicAudios = typeof Audio === "function"
+    ? AUDIO_PATHS.ambientSongs.map((path) => new Audio(path))
+    : [];
   const scoreAudio = typeof Audio === "function" ? new Audio(AUDIO_PATHS.score) : null;
-  let ambienceUnlocked = false;
+  const ballBounceAudios = typeof Audio === "function"
+    ? Array.from({ length: 4 }, () => new Audio(AUDIO_PATHS.bounce))
+    : [];
+  const ballLaunchAudios = typeof Audio === "function"
+    ? Array.from({ length: 4 }, () => new Audio(AUDIO_PATHS.launch))
+    : [];
+  const basketHitAudios = typeof Audio === "function"
+    ? Array.from({ length: 3 }, () => new Audio(AUDIO_PATHS.basketHit))
+    : [];
+  const shoeSqueakAudios = typeof Audio === "function"
+    ? Array.from({ length: 3 }, () => new Audio(AUDIO_PATHS.shoeSqueak))
+    : [];
+  const ballBounceStopTimers = new Map();
+  const basketHitStopTimers = new Map();
+  const shoeSqueakStopTimers = new Map();
+  let audioUnlocked = false;
   let soundEnabled = loadSoundEnabled();
+  let songEnabled = loadSongEnabled();
+  let songVolume = songEnabled ? loadSongVolume() : 0;
+  let ambientMusicAudio = null;
+  let ambientMusicIndex = -1;
   let scoreSoundStopTimer = null;
   let scoreSoundFadeFrame = null;
   let scoreSoundStartedAt = 0;
-  if (ambienceAudio) {
-    ambienceAudio.loop = true;
-    ambienceAudio.preload = "auto";
-    ambienceAudio.volume = 0.45;
+  let ballBounceAudioIndex = 0;
+  let ballLaunchAudioIndex = 0;
+  let basketHitAudioIndex = 0;
+  let shoeSqueakAudioIndex = 0;
+  let heldBounceNearFloor = false;
+  let lastBallBounceSoundAt = -Infinity;
+  for (const audio of ambientMusicAudios) {
+    audio.loop = false;
+    audio.preload = "auto";
+    audio.volume = songVolume;
+    audio.addEventListener("ended", () => {
+      if (audio !== ambientMusicAudio) return;
+      ambientMusicAudio = null;
+      syncAmbientMusic();
+    });
+    audio.load();
   }
   if (scoreAudio) {
     scoreAudio.preload = "auto";
     scoreAudio.volume = 0;
     scoreAudio.load();
+  }
+  for (const audio of ballBounceAudios) {
+    audio.preload = "auto";
+    audio.volume = BALL_BOUNCE_SOUND_VOLUME;
+    audio.load();
+  }
+  for (const audio of ballLaunchAudios) {
+    audio.preload = "auto";
+    audio.volume = BALL_LAUNCH_SOUND_VOLUME;
+    audio.load();
+  }
+  for (const audio of basketHitAudios) {
+    audio.preload = "auto";
+    audio.volume = BASKET_HIT_SOUND_VOLUME;
+    audio.load();
+  }
+  for (const audio of shoeSqueakAudios) {
+    audio.preload = "auto";
+    audio.volume = SHOE_SQUEAK_SOUND_VOLUME;
+    audio.load();
   }
 
   function createImage(src) {
@@ -253,25 +336,53 @@
     loaded = true;
   }
 
-  function unlockAmbienceAudio() {
-    if (!ambienceAudio) return;
-    ambienceUnlocked = true;
-    syncAmbienceAudio();
+  function unlockGameAudio() {
+    audioUnlocked = true;
+    syncAmbientMusic();
   }
 
-  function syncAmbienceAudio() {
-    if (!ambienceAudio) return;
-    const shouldPlay = soundEnabled && ambienceUnlocked && !state.paused && !state.gameOver && !document.hidden;
+  function selectNextAmbientSong() {
+    if (!ambientMusicAudios.length) return null;
+    let nextIndex = Math.floor(Math.random() * ambientMusicAudios.length);
+    if (ambientMusicAudios.length > 1 && nextIndex === ambientMusicIndex) {
+      nextIndex = (nextIndex + 1 + Math.floor(Math.random() * (ambientMusicAudios.length - 1))) % ambientMusicAudios.length;
+    }
+    ambientMusicIndex = nextIndex;
+    ambientMusicAudio = ambientMusicAudios[ambientMusicIndex];
+    try {
+      ambientMusicAudio.currentTime = 0;
+    } catch {
+      // Some browsers may block seeking until metadata is ready.
+    }
+    return ambientMusicAudio;
+  }
+
+  function pauseAmbientMusic() {
+    if (ambientMusicAudio && !ambientMusicAudio.paused) {
+      ambientMusicAudio.pause();
+    }
+  }
+
+  function applyAmbientMusicVolume() {
+    for (const audio of ambientMusicAudios) {
+      audio.volume = songVolume;
+    }
+  }
+
+  function syncAmbientMusic() {
+    const shouldPlay = soundEnabled && songEnabled && songVolume > 0 && audioUnlocked && !state.paused && !state.gameOver && !document.hidden;
     if (!shouldPlay) {
-      if (!ambienceAudio.paused) ambienceAudio.pause();
+      pauseAmbientMusic();
       return;
     }
-    if (!ambienceAudio.paused) return;
-    const playPromise = ambienceAudio.play();
+    const audio = ambientMusicAudio || selectNextAmbientSong();
+    if (!audio) return;
+    ambientMusicAudio = audio;
+    ambientMusicAudio.volume = songVolume;
+    if (!ambientMusicAudio.paused) return;
+    const playPromise = ambientMusicAudio.play();
     if (playPromise && typeof playPromise.catch === "function") {
-      playPromise.catch(() => {
-        ambienceUnlocked = false;
-      });
+      playPromise.catch(() => {});
     }
   }
 
@@ -291,11 +402,63 @@
     }
   }
 
+  function loadSongEnabled() {
+    try {
+      return localStorage.getItem("pixelBasketballSong") !== "off";
+    } catch {
+      return true;
+    }
+  }
+
+  function saveSongEnabled() {
+    try {
+      localStorage.setItem("pixelBasketballSong", songEnabled ? "on" : "off");
+    } catch {
+      // Audio should keep working even if browser storage is unavailable.
+    }
+  }
+
+  function loadSongVolume() {
+    try {
+      const saved = Number.parseFloat(localStorage.getItem("pixelBasketballSongVolume") || "");
+      return Number.isFinite(saved) ? clamp(saved, 0, 1) : DEFAULT_AMBIENT_MUSIC_VOLUME;
+    } catch {
+      return DEFAULT_AMBIENT_MUSIC_VOLUME;
+    }
+  }
+
+  function saveSongVolume() {
+    try {
+      localStorage.setItem("pixelBasketballSongVolume", songVolume.toFixed(3));
+    } catch {
+      // Audio should keep working even if browser storage is unavailable.
+    }
+  }
+
+  function setSongVolume(value) {
+    songVolume = clamp(value, 0, 1);
+    songEnabled = songVolume > 0;
+    saveSongVolume();
+    saveSongEnabled();
+    applyAmbientMusicVolume();
+    if (!songEnabled) {
+      pauseAmbientMusic();
+    }
+    syncAmbientMusic();
+  }
+
   function toggleSound() {
     soundEnabled = !soundEnabled;
     saveSoundEnabled();
-    if (!soundEnabled) stopScoreSound();
-    syncAmbienceAudio();
+    if (!soundEnabled) {
+      pauseAmbientMusic();
+      stopScoreSound();
+      stopBallBounceSounds();
+      stopBallLaunchSounds();
+      stopBasketHitSounds();
+      stopShoeSqueakSounds();
+    }
+    syncAmbientMusic();
   }
 
   function clearScoreSoundStopTimer() {
@@ -376,9 +539,162 @@
     scoreSoundStopTimer = setTimeout(stopScoreSound, SCORE_SOUND_PLAY_SECONDS * 1000);
   }
 
+  function clearBallBounceStopTimer(audio) {
+    const timer = ballBounceStopTimers.get(audio);
+    if (!timer) return;
+    clearTimeout(timer);
+    ballBounceStopTimers.delete(audio);
+  }
+
+  function ballBounceStartTime(audio) {
+    if (!audio || !Number.isFinite(audio.duration) || audio.duration <= 0) {
+      return BALL_BOUNCE_SOUND_START_SECONDS;
+    }
+    return Math.min(BALL_BOUNCE_SOUND_START_SECONDS, Math.max(0, audio.duration - 0.05));
+  }
+
+  function stopBallBounceSound(audio) {
+    clearBallBounceStopTimer(audio);
+    audio.pause();
+    audio.playbackRate = 1;
+  }
+
+  function stopBallBounceSounds() {
+    for (const audio of ballBounceAudios) {
+      stopBallBounceSound(audio);
+    }
+  }
+
+  function playBallBounceSound() {
+    if (!soundEnabled || !audioUnlocked || ballBounceAudios.length === 0) return;
+    const now = performance.now();
+    if (now - lastBallBounceSoundAt < BALL_BOUNCE_MIN_INTERVAL_SECONDS * 1000) return;
+    lastBallBounceSoundAt = now;
+
+    const audio = ballBounceAudios[ballBounceAudioIndex % ballBounceAudios.length];
+    ballBounceAudioIndex += 1;
+    clearBallBounceStopTimer(audio);
+    audio.pause();
+    audio.volume = BALL_BOUNCE_SOUND_VOLUME;
+    audio.playbackRate = BALL_BOUNCE_SOUND_PLAYBACK_RATE;
+    try {
+      audio.currentTime = ballBounceStartTime(audio);
+    } catch {
+      // Some browsers only allow seeking after metadata is ready.
+    }
+    const playPromise = audio.play();
+    if (playPromise && typeof playPromise.catch === "function") {
+      playPromise.catch(() => {});
+    }
+    const timer = setTimeout(
+      () => stopBallBounceSound(audio),
+      (BALL_BOUNCE_SOUND_PLAY_SECONDS / BALL_BOUNCE_SOUND_PLAYBACK_RATE) * 1000
+    );
+    ballBounceStopTimers.set(audio, timer);
+  }
+
+  function stopBallLaunchSounds() {
+    for (const audio of ballLaunchAudios) {
+      audio.pause();
+    }
+  }
+
+  function playBallLaunchSound() {
+    if (!soundEnabled || !audioUnlocked || ballLaunchAudios.length === 0) return;
+    const audio = ballLaunchAudios[ballLaunchAudioIndex % ballLaunchAudios.length];
+    ballLaunchAudioIndex += 1;
+    audio.pause();
+    audio.volume = BALL_LAUNCH_SOUND_VOLUME;
+    try {
+      audio.currentTime = 0;
+    } catch {
+      // Some browsers only allow seeking after metadata is ready.
+    }
+    const playPromise = audio.play();
+    if (playPromise && typeof playPromise.catch === "function") {
+      playPromise.catch(() => {});
+    }
+  }
+
+  function clearBasketHitStopTimer(audio) {
+    const timer = basketHitStopTimers.get(audio);
+    if (!timer) return;
+    clearTimeout(timer);
+    basketHitStopTimers.delete(audio);
+  }
+
+  function stopBasketHitSound(audio) {
+    clearBasketHitStopTimer(audio);
+    audio.pause();
+  }
+
+  function stopBasketHitSounds() {
+    for (const audio of basketHitAudios) {
+      stopBasketHitSound(audio);
+    }
+  }
+
+  function playBasketHitSound() {
+    if (!soundEnabled || !audioUnlocked || basketHitAudios.length === 0) return;
+    const audio = basketHitAudios[basketHitAudioIndex % basketHitAudios.length];
+    basketHitAudioIndex += 1;
+    clearBasketHitStopTimer(audio);
+    audio.pause();
+    audio.volume = BASKET_HIT_SOUND_VOLUME;
+    try {
+      audio.currentTime = 0;
+    } catch {
+      // Some browsers only allow seeking after metadata is ready.
+    }
+    const playPromise = audio.play();
+    if (playPromise && typeof playPromise.catch === "function") {
+      playPromise.catch(() => {});
+    }
+    const timer = setTimeout(() => stopBasketHitSound(audio), BASKET_HIT_SOUND_PLAY_SECONDS * 1000);
+    basketHitStopTimers.set(audio, timer);
+  }
+
+  function clearShoeSqueakStopTimer(audio) {
+    const timer = shoeSqueakStopTimers.get(audio);
+    if (!timer) return;
+    clearTimeout(timer);
+    shoeSqueakStopTimers.delete(audio);
+  }
+
+  function stopShoeSqueakSound(audio) {
+    clearShoeSqueakStopTimer(audio);
+    audio.pause();
+  }
+
+  function stopShoeSqueakSounds() {
+    for (const audio of shoeSqueakAudios) {
+      stopShoeSqueakSound(audio);
+    }
+  }
+
+  function playShoeSqueakSound() {
+    if (!soundEnabled || !audioUnlocked || shoeSqueakAudios.length === 0) return;
+    const audio = shoeSqueakAudios[shoeSqueakAudioIndex % shoeSqueakAudios.length];
+    shoeSqueakAudioIndex += 1;
+    clearShoeSqueakStopTimer(audio);
+    audio.pause();
+    audio.volume = SHOE_SQUEAK_SOUND_VOLUME;
+    try {
+      audio.currentTime = 0;
+    } catch {
+      // Some browsers only allow seeking after metadata is ready.
+    }
+    const playPromise = audio.play();
+    if (playPromise && typeof playPromise.catch === "function") {
+      playPromise.catch(() => {});
+    }
+    const timer = setTimeout(() => stopShoeSqueakSound(audio), SHOE_SQUEAK_SOUND_PLAY_SECONDS * 1000);
+    shoeSqueakStopTimers.set(audio, timer);
+  }
+
   function setPaused(paused) {
     state.paused = paused;
-    syncAmbienceAudio();
+    syncAmbientMusic();
   }
 
   function resizeCanvas() {
@@ -1351,6 +1667,8 @@
     state.ball.rimStyle = "";
     state.lastPasser = from.id;
     from.facingX = to.x < from.x ? -1 : 1;
+    playShoeSqueakSound();
+    playBallLaunchSound();
     if (from.team === "blue") showMessage("PASS", 0.55);
   }
 
@@ -1460,6 +1778,7 @@
     const chance = clamp(0.24 + timing * 0.46 + staminaBonus - contest * 0.2 - distancePenalty - blockPenalty, 0.14, 0.88);
     const made = reachesHoop && (perfect || Math.random() < chance);
 
+    playBallLaunchSound();
     state.ball.mode = "shot";
     state.ball.holderId = null;
     state.ball.targetId = null;
@@ -2196,12 +2515,17 @@
     if (ball.mode === "held") {
       const holder = playerById(ball.holderId);
       if (!holder) return;
-      const dribbleBounce = holder.jumpOffset > 4 ? 0 : Math.sin(holder.frameT * 18) * HITBOXES.ballBounceHeight;
+      const bouncePhase = holder.jumpOffset > 4 ? 0 : Math.sin(holder.frameT * 18);
+      const dribbleBounce = bouncePhase * HITBOXES.ballBounceHeight;
       ball.x = holder.x + (holder.team === "blue" ? -12 : 12);
       ball.y = holder.y - 24 + dribbleBounce;
       ball.z = holder.jumpOffset;
+      const nearFloor = holder.jumpOffset <= 4 && bouncePhase > 0.92;
+      if (nearFloor && !heldBounceNearFloor) playBallBounceSound();
+      heldBounceNearFloor = nearFloor;
       return;
     }
+    heldBounceNearFloor = false;
 
     if (ball.mode === "pass") {
       ball.time += dt;
@@ -2255,7 +2579,9 @@
         ball.vx *= drag;
         ball.vy *= drag;
         if (ball.z <= 0) {
+          const impactSpeed = Math.abs(ball.vz);
           ball.z = 0;
+          if (impactSpeed > 30) playBallBounceSound();
           if (Math.abs(ball.vz) > 46) {
             ball.vz = -ball.vz * 0.42;
             ball.vx *= 0.72;
@@ -2293,6 +2619,7 @@
         }
         if (bestGap <= 0) {
           best.stats.reb += 1;
+          playShoeSqueakSound();
           giveBall(best, best.team);
           showMessage(`${best.team === "blue" ? "BLUE" : "RED"} REBOUND`, 1.05);
         }
@@ -2332,6 +2659,7 @@
   function beginRimSequence(shooter) {
     const ball = state.ball;
     const roll = Math.random();
+    playBasketHitSound();
     ball.mode = "rim";
     ball.time = 0;
     ball.rimSide = Math.random() < 0.5 ? -1 : 1;
@@ -2772,6 +3100,8 @@
     const blueShootImg = blueShootFrameIndex >= 0 ? assets.blueShoot : null;
     const blueBlockFrameIndex = blueBlockFrame(p);
     const blueBlockImg = blueBlockFrameIndex >= 0 ? assets.blueBlock : null;
+    const bluePassUpRightFrameIndex = bluePassUpRightFrame(p);
+    const bluePassUpRightImg = bluePassUpRightFrameIndex >= 0 ? assets.bluePassUpRight : null;
     const bluePassUpFrameIndex = bluePassUpFrame(p);
     const bluePassUpImg = bluePassUpFrameIndex >= 0 ? assets.bluePassUp : null;
     const bluePassFrameIndex = bluePassFrame(p);
@@ -2826,6 +3156,8 @@
       drawShootingSprite(blueShootImg, blueShootFrameIndex, p, visualY);
     } else if (redShootImg && redShootImg.complete && redShootImg.naturalWidth) {
       drawShootingSprite(redShootImg, redShootFrameIndex, p, visualY);
+    } else if (bluePassUpRightImg && bluePassUpRightImg.complete && bluePassUpRightImg.naturalWidth) {
+      drawPassingUpRightSprite(bluePassUpRightImg, bluePassUpRightFrameIndex, p, visualY, passDirectionX());
     } else if (bluePassUpImg && bluePassUpImg.complete && bluePassUpImg.naturalWidth) {
       drawPassingUpSprite(bluePassUpImg, bluePassUpFrameIndex, p, visualY);
     } else if (bluePassImg && bluePassImg.complete && bluePassImg.naturalWidth) {
@@ -2990,6 +3322,19 @@
     ctx.drawImage(img, sx, sy, cw, ch, player.x - 69, visualY - 101, 128, 128);
   }
 
+  function drawPassingUpRightSprite(img, frameIndex, player, visualY, directionX) {
+    const cw = img.naturalWidth / 4;
+    const ch = img.naturalHeight / 4;
+    const sx = (frameIndex % 4) * cw;
+    const sy = Math.floor(frameIndex / 4) * ch;
+    const mirrored = directionX < 0;
+    ctx.save();
+    ctx.translate(player.x, 0);
+    if (mirrored) ctx.scale(-1, 1);
+    ctx.drawImage(img, sx, sy, cw, ch, -69, visualY - 101, 128, 128);
+    ctx.restore();
+  }
+
   function drawShootingSprite(img, frameIndex, player, visualY) {
     const cw = img.naturalWidth / 4;
     const ch = img.naturalHeight / 4;
@@ -3012,7 +3357,7 @@
     ctx.save();
     ctx.translate(player.x, 0);
     if (mirrored) ctx.scale(-1, 1);
-    ctx.drawImage(img, sx, sy, cw, ch, -48, visualY - 110, 96, 112);
+    ctx.drawImage(img, sx, sy, cw, ch, -64, visualY - 110, 128, 128);
     ctx.restore();
   }
 
@@ -3089,7 +3434,7 @@
     if (p.team !== "blue") return -1;
     const hasBall = state.ball.mode === "held" && state.ball.holderId === p.id;
     if (!hasBall || p.animDirection !== "idle" || isJumpCharging(p) || p.jumpOffset > 8) return -1;
-    return Math.floor(p.frameT / 0.0225) % 16;
+    return Math.floor(p.frameT / BLUE_IDLE_BALL_FRAME_SECONDS) % 16;
   }
 
   function blueHeldBallSpriteOwnsBall() {
@@ -3117,6 +3462,16 @@
     if (p.team !== "blue") return -1;
     if (state.ball.mode !== "pass" || state.ball.assistFrom !== p.id) return -1;
     if (!isPassToUpCourt()) return -1;
+    if (isPassToUpSideCourt()) return -1;
+    const duration = Math.max(0.08, Math.min(BLUE_PASS_UP_ANIMATION_SECONDS, state.ball.duration));
+    if (state.ball.time >= duration) return -1;
+    return Math.min(15, Math.floor((state.ball.time / duration) * 16));
+  }
+
+  function bluePassUpRightFrame(p) {
+    if (p.team !== "blue") return -1;
+    if (state.ball.mode !== "pass" || state.ball.assistFrom !== p.id) return -1;
+    if (!isPassToUpSideCourt()) return -1;
     const duration = Math.max(0.08, Math.min(BLUE_PASS_UP_ANIMATION_SECONDS, state.ball.duration));
     if (state.ball.time >= duration) return -1;
     return Math.min(15, Math.floor((state.ball.time / duration) * 16));
@@ -3124,6 +3479,10 @@
 
   function isPassToUpCourt() {
     return state.ball.targetY < state.ball.fromY - 4;
+  }
+
+  function isPassToUpSideCourt() {
+    return isPassToUpCourt() && Math.abs(state.ball.targetX - state.ball.fromX) > 8;
   }
 
   function passDirectionX() {
@@ -3359,8 +3718,8 @@
     const b = PAUSE_BUTTON;
     drawPanel(b.x, b.y, b.w, b.h, "rgba(8,9,12,0.94)", "#747980");
     ctx.fillStyle = "#ffffff";
-    ctx.fillRect(b.x + 12, b.y + 9, 6, 18);
-    ctx.fillRect(b.x + 24, b.y + 9, 6, 18);
+    ctx.fillRect(b.x + 10, b.y + 9, 6, 18);
+    ctx.fillRect(b.x + 20, b.y + 9, 6, 18);
   }
 
   function drawConfigButton() {
@@ -3373,31 +3732,60 @@
     for (let i = 0; i < 8; i += 1) {
       ctx.save();
       ctx.rotate((Math.PI / 4) * i);
-      ctx.fillRect(-2, -16, 4, 7);
+      ctx.fillRect(-1.5, -13, 3, 5);
       ctx.restore();
     }
     ctx.strokeStyle = "#ffffff";
-    ctx.lineWidth = 4;
+    ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.arc(0, 0, 10, 0, Math.PI * 2);
+    ctx.arc(0, 0, 8, 0, Math.PI * 2);
     ctx.stroke();
     ctx.fillStyle = fill;
     ctx.beginPath();
-    ctx.arc(0, 0, 4, 0, Math.PI * 2);
+    ctx.arc(0, 0, 3, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
   }
 
   function hitboxConfigPanelRect() {
-    return { x: 42, y: 6, w: 456, h: 948 };
+    const h = Math.round(H * HITBOX_CONFIG_PANEL_HEIGHT_RATIO);
+    return { x: 42, y: Math.round((H - h) / 2), w: 456, h };
+  }
+
+  function hitboxConfigListRect() {
+    const panel = hitboxConfigPanelRect();
+    return {
+      x: panel.x + 16,
+      y: panel.y + HITBOX_CONFIG_HEADER_HEIGHT,
+      w: panel.w - 32,
+      h: panel.h - HITBOX_CONFIG_HEADER_HEIGHT - HITBOX_CONFIG_FOOTER_HEIGHT,
+    };
   }
 
   function hitboxConfigRowY(index) {
-    return hitboxConfigPanelRect().y + 74 + index * 36;
+    return hitboxConfigListRect().y + 20 + index * HITBOX_CONFIG_ROW_HEIGHT - configScrollY;
+  }
+
+  function hitboxConfigContentHeight() {
+    return HITBOX_CONFIGS.length * HITBOX_CONFIG_ROW_HEIGHT + 4;
+  }
+
+  function maxHitboxConfigScroll() {
+    return Math.max(0, hitboxConfigContentHeight() - hitboxConfigListRect().h);
+  }
+
+  function setHitboxConfigScroll(value) {
+    configScrollY = clamp(value, 0, maxHitboxConfigScroll());
+  }
+
+  function scrollHitboxConfig(deltaY) {
+    setHitboxConfigScroll(configScrollY + deltaY);
   }
 
   function drawHitboxConfigPanel() {
     const panel = hitboxConfigPanelRect();
+    const list = hitboxConfigListRect();
+    setHitboxConfigScroll(configScrollY);
     ctx.save();
     ctx.fillStyle = "rgba(0,0,0,0.58)";
     ctx.fillRect(0, 0, W, H);
@@ -3412,9 +3800,15 @@
     ctx.fillText("WIDTH / HEIGHT - CHANGES LIVE", panel.x + 22, panel.y + 56);
 
     drawConfigRectButton(configCloseRect(), "X", "#313846", "#ffffff");
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(list.x, list.y, list.w, list.h);
+    ctx.clip();
     for (let i = 0; i < HITBOX_CONFIGS.length; i += 1) {
       drawHitboxConfigRow(i);
     }
+    ctx.restore();
+    drawHitboxConfigScrollbar();
     drawConfigRectButton(configResetRect(), "RESET", "#123861", "#ffffff");
     drawConfigRectButton(
       configHitboxToggleRect(),
@@ -3432,6 +3826,8 @@
   function drawHitboxConfigRow(index) {
     const config = HITBOX_CONFIGS[index];
     const y = hitboxConfigRowY(index);
+    const list = hitboxConfigListRect();
+    if (y + 17 < list.y || y - 17 > list.y + list.h) return;
     ctx.fillStyle = index % 2 === 0 ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.075)";
     ctx.fillRect(58, y - 17, 424, 32);
     ctx.textAlign = "left";
@@ -3451,6 +3847,21 @@
       drawConfigRectButton(configButtonRect(index, "minus"), "-", "#262f3d", "#ffffff");
       drawConfigRectButton(configButtonRect(index, "plus"), "+", "#1d5e35", "#ffffff");
     }
+  }
+
+  function drawHitboxConfigScrollbar() {
+    const list = hitboxConfigListRect();
+    const maxScroll = maxHitboxConfigScroll();
+    if (maxScroll <= 0) return;
+    const track = { x: list.x + list.w - 8, y: list.y + 4, w: 5, h: list.h - 8 };
+    const thumbH = Math.max(34, track.h * (list.h / hitboxConfigContentHeight()));
+    const thumbY = track.y + (track.h - thumbH) * (configScrollY / maxScroll);
+    ctx.save();
+    ctx.fillStyle = "rgba(255,255,255,0.16)";
+    ctx.fillRect(track.x, track.y, track.w, track.h);
+    ctx.fillStyle = "#9dc8f5";
+    ctx.fillRect(track.x - 1, thumbY, track.w + 2, thumbH);
+    ctx.restore();
   }
 
   function drawConfigRectButton(rect, label, fill, color) {
@@ -3618,6 +4029,15 @@
     return { x: PAUSE_MENU.x + 42, y: PAUSE_MENU.y + 182, w: PAUSE_MENU.w - 84, h: 40 };
   }
 
+  function pauseSongRect() {
+    return { x: PAUSE_MENU.x + 42, y: PAUSE_MENU.y + 232, w: PAUSE_MENU.w - 84, h: 40 };
+  }
+
+  function pauseSongTrackRect() {
+    const rect = pauseSongRect();
+    return { x: rect.x + 76, y: rect.y + 25, w: rect.w - 120, h: 8 };
+  }
+
   function drawPauseMenuButton(rect, label, fill, stroke) {
     drawPanel(rect.x, rect.y, rect.w, rect.h, fill, stroke);
     ctx.fillStyle = "#ffffff";
@@ -3626,6 +4046,47 @@
     ctx.textBaseline = "middle";
     ctx.fillText(label, rect.x + rect.w / 2, rect.y + rect.h / 2 + 1);
     ctx.textBaseline = "alphabetic";
+  }
+
+  function drawPauseSongControl() {
+    const rect = pauseSongRect();
+    const track = pauseSongTrackRect();
+    const percent = Math.round(songVolume * 100);
+    const active = songVolume > 0;
+    drawPanel(
+      rect.x,
+      rect.y,
+      rect.w,
+      rect.h,
+      active ? "rgba(25,98,54,0.96)" : "rgba(70,64,76,0.96)",
+      active ? "#a7eab7" : "#c8bfd4"
+    );
+    ctx.save();
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 13px 'Courier New', monospace";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.fillText("SONG", rect.x + 16, rect.y + 15);
+    ctx.textAlign = "right";
+    ctx.fillText(`${percent}%`, rect.x + rect.w - 14, rect.y + 15);
+
+    ctx.fillStyle = "rgba(3,8,13,0.82)";
+    ctx.strokeStyle = "#c6dcf3";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    roundRectPath(track.x, track.y, track.w, track.h, 4);
+    ctx.fill();
+    ctx.stroke();
+    if (songVolume > 0) {
+      ctx.fillStyle = "#37e86b";
+      ctx.beginPath();
+      roundRectPath(track.x, track.y, Math.max(4, track.w * songVolume), track.h, 4);
+      ctx.fill();
+    }
+    ctx.fillStyle = "#ffffff";
+    const markerX = clamp(track.x + track.w * songVolume, track.x, track.x + track.w);
+    ctx.fillRect(markerX - 2, track.y - 4, 4, track.h + 8);
+    ctx.restore();
   }
 
   function drawPauseOverlay() {
@@ -3645,6 +4106,7 @@
       soundEnabled ? "rgba(25,98,54,0.96)" : "rgba(70,64,76,0.96)",
       soundEnabled ? "#a7eab7" : "#c8bfd4"
     );
+    drawPauseSongControl();
     ctx.restore();
   }
 
@@ -3805,11 +4267,11 @@
   }
 
   function pointerDown(event) {
-    unlockAmbienceAudio();
+    unlockGameAudio();
     const pt = screenPoint(event);
     canvas.setPointerCapture(event.pointerId);
-    if (handleConfigPointerDown(pt)) return;
-    if (state.paused && handlePauseMenuPointerDown(pt)) return;
+    if (handleConfigPointerDown(pt, event.pointerId)) return;
+    if (state.paused && handlePauseMenuPointerDown(pt, event.pointerId)) return;
     if (pointInRect(pt, PAUSE_BUTTON)) {
       setPaused(!state.paused);
       return;
@@ -3830,7 +4292,7 @@
     }
   }
 
-  function handlePauseMenuPointerDown(pt) {
+  function handlePauseMenuPointerDown(pt, pointerId) {
     if (pointInRect(pt, pauseResumeRect())) {
       setPaused(false);
       return true;
@@ -3843,17 +4305,30 @@
       toggleSound();
       return true;
     }
+    if (pointInRect(pt, pauseSongRect())) {
+      input.songVolumePointer = pointerId;
+      updateSongVolumeFromPoint(pt);
+      return true;
+    }
     return true;
   }
 
-  function handleConfigPointerDown(pt) {
+  function updateSongVolumeFromPoint(pt) {
+    const track = pauseSongTrackRect();
+    setSongVolume((pt.x - track.x) / track.w);
+  }
+
+  function handleConfigPointerDown(pt, pointerId) {
     if (pointInRect(pt, CONFIG_BUTTON)) {
       state.configOpen = !state.configOpen;
+      if (!state.configOpen) input.configScrollPointer = null;
+      setHitboxConfigScroll(configScrollY);
       return true;
     }
     if (!state.configOpen) return false;
     if (pointInRect(pt, configCloseRect())) {
       state.configOpen = false;
+      input.configScrollPointer = null;
       return true;
     }
     if (pointInRect(pt, configHitboxToggleRect())) {
@@ -3864,45 +4339,66 @@
       resetHitboxSettings();
       return true;
     }
-    for (let i = 0; i < HITBOX_CONFIGS.length; i += 1) {
-      const config = HITBOX_CONFIGS[i];
-      if (config.type === "rect") {
-        if (pointInRect(pt, configButtonRect(i, "wMinus"))) {
-          adjustHitboxConfig(config.widthKey, -config.step);
-          return true;
-        }
-        if (pointInRect(pt, configButtonRect(i, "wPlus"))) {
-          adjustHitboxConfig(config.widthKey, config.step);
-          return true;
-        }
-        if (pointInRect(pt, configButtonRect(i, "hMinus"))) {
-          adjustHitboxConfig(config.heightKey, -config.step);
-          return true;
-        }
-        if (pointInRect(pt, configButtonRect(i, "hPlus"))) {
-          adjustHitboxConfig(config.heightKey, config.step);
-          return true;
-        }
-      } else {
-        if (pointInRect(pt, configButtonRect(i, "minus"))) {
-          adjustHitboxConfig(config.key, -config.step);
-          return true;
-        }
-        if (pointInRect(pt, configButtonRect(i, "plus"))) {
-          adjustHitboxConfig(config.key, config.step);
-          return true;
+    if (pointInRect(pt, hitboxConfigListRect())) {
+      for (let i = 0; i < HITBOX_CONFIGS.length; i += 1) {
+        const config = HITBOX_CONFIGS[i];
+        if (config.type === "rect") {
+          if (pointInRect(pt, configButtonRect(i, "wMinus"))) {
+            adjustHitboxConfig(config.widthKey, -config.step);
+            return true;
+          }
+          if (pointInRect(pt, configButtonRect(i, "wPlus"))) {
+            adjustHitboxConfig(config.widthKey, config.step);
+            return true;
+          }
+          if (pointInRect(pt, configButtonRect(i, "hMinus"))) {
+            adjustHitboxConfig(config.heightKey, -config.step);
+            return true;
+          }
+          if (pointInRect(pt, configButtonRect(i, "hPlus"))) {
+            adjustHitboxConfig(config.heightKey, config.step);
+            return true;
+          }
+        } else {
+          if (pointInRect(pt, configButtonRect(i, "minus"))) {
+            adjustHitboxConfig(config.key, -config.step);
+            return true;
+          }
+          if (pointInRect(pt, configButtonRect(i, "plus"))) {
+            adjustHitboxConfig(config.key, config.step);
+            return true;
+          }
         }
       }
+      input.configScrollPointer = pointerId;
+      input.configScrollLastY = pt.y;
+      return true;
     }
     return true;
   }
 
   function pointerMove(event) {
+    if (input.songVolumePointer === event.pointerId) {
+      updateSongVolumeFromPoint(screenPoint(event));
+      return;
+    }
+    if (input.configScrollPointer === event.pointerId) {
+      const pt = screenPoint(event);
+      scrollHitboxConfig(input.configScrollLastY - pt.y);
+      input.configScrollLastY = pt.y;
+      return;
+    }
     if (input.joystickPointer !== event.pointerId) return;
     updateJoystick(screenPoint(event));
   }
 
   function pointerUp(event) {
+    if (input.songVolumePointer === event.pointerId) {
+      input.songVolumePointer = null;
+    }
+    if (input.configScrollPointer === event.pointerId) {
+      input.configScrollPointer = null;
+    }
     if (input.joystickPointer === event.pointerId) {
       input.joystickPointer = null;
       input.joyX = 0;
@@ -3915,8 +4411,17 @@
     }
   }
 
+  function wheel(event) {
+    if (!state.configOpen) return;
+    const pt = screenPoint(event);
+    if (!pointInRect(pt, hitboxConfigPanelRect())) return;
+    event.preventDefault();
+    const unit = event.deltaMode === 1 ? 18 : event.deltaMode === 2 ? H : 1;
+    scrollHitboxConfig(event.deltaY * unit);
+  }
+
   function keyDown(event) {
-    unlockAmbienceAudio();
+    unlockGameAudio();
     if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space"].includes(event.code)) {
       event.preventDefault();
     }
@@ -3928,8 +4433,12 @@
     if (event.code === "KeyP" && !state.paused) setPaused(true);
     if (event.code === "KeyC") {
       state.configOpen = !state.configOpen;
+      if (!state.configOpen) input.configScrollPointer = null;
     }
-    if (event.code === "Escape") state.configOpen = false;
+    if (event.code === "Escape") {
+      state.configOpen = false;
+      input.configScrollPointer = null;
+    }
     if (event.code === "KeyH") state.showHitboxes = !state.showHitboxes;
     if (event.code === "KeyR" && state.gameOver) restartGame();
     if (event.code === "KeyJ") performAction(state.possession === "blue" ? "PASS" : "BLOCK", true);
@@ -3950,14 +4459,16 @@
     state.showHitboxes = showHitboxes;
     input.chargingShoot = false;
     input.actionPointers.clear();
-    syncAmbienceAudio();
+    input.configScrollPointer = null;
+    heldBounceNearFloor = false;
+    syncAmbientMusic();
   }
 
   function loop(now) {
     const dt = (now - lastTime) / 1000;
     lastTime = now;
     update(dt);
-    syncAmbienceAudio();
+    syncAmbientMusic();
     draw();
     requestAnimationFrame(loop);
   }
@@ -3968,10 +4479,10 @@
   canvas.addEventListener("pointermove", pointerMove);
   canvas.addEventListener("pointerup", pointerUp);
   canvas.addEventListener("pointercancel", pointerUp);
+  canvas.addEventListener("wheel", wheel, { passive: false });
   window.addEventListener("keydown", keyDown, { passive: false });
   window.addEventListener("keyup", keyUp);
-  document.addEventListener("visibilitychange", syncAmbienceAudio);
-
+  document.addEventListener("visibilitychange", syncAmbientMusic);
   loadAssets();
   requestAnimationFrame(loop);
 })();
