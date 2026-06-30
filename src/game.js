@@ -62,7 +62,7 @@
   const BALL_BOUNCE_SOUND_START_SECONDS = 4.5;
   const BALL_BOUNCE_SOUND_PLAY_SECONDS = .8;
   const BALL_BOUNCE_SOUND_VOLUME = 0.5;
-  const BALL_BOUNCE_MIN_INTERVAL_SECONDS = 0.351;
+  const BALL_BOUNCE_MIN_INTERVAL_SECONDS = 0.2;
   const BALL_LAUNCH_SOUND_VOLUME = 0.62;
   const BASKET_HIT_SOUND_PLAY_SECONDS = 0.7;
   const BASKET_HIT_SOUND_VOLUME = 0.7;
@@ -3978,7 +3978,7 @@
     ctx.textBaseline = "middle";
     drawDesktopHintText([
       ["WASD", "move"],
-      ["LEFT CLICK", "pass/steal"],
+      ["CLICK", "pass/steal"],
       ["SPACE", "shoot/block"],
       ["P", "pause"],
     ], W / 2, y + h / 2 + 1);
