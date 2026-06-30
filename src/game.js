@@ -12,6 +12,7 @@
     hoopRed: { x: 270, y: 785 },
   };
   const ASSET_PATHS = {
+    startMenu: "assets/generated/start-menu.png",
     court: "assets/generated/court-arena.png",
     blue: "assets/generated/player-blue.png",
     blueIdle: "assets/generated/player-blue-idle.png",
@@ -90,6 +91,7 @@
   const PAUSE_BUTTON = { x: 492, y: 13, w: 34, h: 28 };
   const CONFIG_BUTTON = { x: 492, y: 45, w: 34, h: 28 };
   const PAUSE_MENU = { x: 112, y: 330, w: 316, h: 300 };
+  const START_BUTTON = { x: 150, y: 600, w: 240, h: 64 };
   const HITBOX_CONFIG_PANEL_HEIGHT_RATIO = 0.7;
   const HITBOX_CONFIG_ROW_HEIGHT = 36;
   const HITBOX_CONFIG_HEADER_HEIGHT = 68;
@@ -209,7 +211,7 @@
   loadHitboxSettings();
 
   /**
-   * @typedef {{ court: HTMLImageElement, blue: HTMLImageElement, blueIdle: HTMLImageElement, blueIdleBall: HTMLImageElement, bluePass: HTMLImageElement, bluePassUp: HTMLImageElement, bluePassUpRight: HTMLImageElement, blueRunUp: HTMLImageElement, blueRunUpBall: HTMLImageElement, blueRunDown: HTMLImageElement, blueRunDownBall: HTMLImageElement, blueRunSide: HTMLImageElement, blueRunSideBall: HTMLImageElement, blueBlock: HTMLImageElement, blueShoot: HTMLImageElement, red: HTMLImageElement, redRunUp: HTMLImageElement, redRunUpBall: HTMLImageElement, redRunDown: HTMLImageElement, redRunDownBall: HTMLImageElement, redRun: HTMLImageElement, redRunSideBall: HTMLImageElement, redIdle: HTMLImageElement, redIdleBall: HTMLImageElement, redPass: HTMLImageElement, redShoot: HTMLImageElement, props: HTMLImageElement, icons: HTMLImageElement }} AssetManifest
+   * @typedef {{ startMenu: HTMLImageElement, court: HTMLImageElement, blue: HTMLImageElement, blueIdle: HTMLImageElement, blueIdleBall: HTMLImageElement, bluePass: HTMLImageElement, bluePassUp: HTMLImageElement, bluePassUpRight: HTMLImageElement, blueRunUp: HTMLImageElement, blueRunUpBall: HTMLImageElement, blueRunDown: HTMLImageElement, blueRunDownBall: HTMLImageElement, blueRunSide: HTMLImageElement, blueRunSideBall: HTMLImageElement, blueBlock: HTMLImageElement, blueShoot: HTMLImageElement, red: HTMLImageElement, redRunUp: HTMLImageElement, redRunUpBall: HTMLImageElement, redRunDown: HTMLImageElement, redRunDownBall: HTMLImageElement, redRun: HTMLImageElement, redRunSideBall: HTMLImageElement, redIdle: HTMLImageElement, redIdleBall: HTMLImageElement, redPass: HTMLImageElement, redShoot: HTMLImageElement, props: HTMLImageElement, icons: HTMLImageElement }} AssetManifest
    * @typedef {{ pts: number, reb: number, ast: number, stl: number }} PlayerStats
    * @typedef {{ id: string, team: "blue" | "red", number: number, name: string, x: number, y: number, vx: number, vy: number, r: number, speed: number, stamina: number, boost: number, frameT: number, aiT: number, stealCooldown: number, blockCooldown: number, blockAnimT: number, blockFacingX: -1 | 1, pressureT: number, stealLungeT: number, defensePauseT: number, defensePauseCooldown: number, jumpOffset: number, shotAirborne: boolean, shotAirVx: number, shotAirVy: number, animDirection: "idle" | "up" | "down" | "side", animCandidate: "idle" | "up" | "down" | "side", animCandidateT: number, animLockT: number, facingX: -1 | 1, facingCandidate: -1 | 1, facingCandidateT: number, defenseShade: number, defenseDepth: number, driftSeed: number, stats: PlayerStats }} Player
    * @typedef {{ id: "blue" | "red", name: string, color: string, players: Player[] }} Team
@@ -243,6 +245,8 @@
   /** @type {GameState} */
   let state = createGameState();
   let loaded = false;
+  let gameStarted = false;
+  let ambientAutoplayAttempted = false;
   let lastTime = performance.now();
   let configScrollY = 0;
   const ambientMusicAudios = typeof Audio === "function"
@@ -374,10 +378,20 @@
   }
 
   function syncAmbientMusic() {
-    const shouldPlay = soundEnabled && songEnabled && songVolume > 0 && audioUnlocked && !state.paused && !state.gameOver && !document.hidden;
+    const canTryStartMenuAutoplay = !gameStarted && !audioUnlocked && !ambientAutoplayAttempted;
+    const shouldPlay = soundEnabled &&
+      songEnabled &&
+      songVolume > 0 &&
+      (audioUnlocked || canTryStartMenuAutoplay) &&
+      !state.paused &&
+      !state.gameOver &&
+      !document.hidden;
     if (!shouldPlay) {
       pauseAmbientMusic();
       return;
+    }
+    if (canTryStartMenuAutoplay) {
+      ambientAutoplayAttempted = true;
     }
     const audio = ambientMusicAudio || selectNextAmbientSong();
     if (!audio) return;
@@ -2010,6 +2024,7 @@
 
   function update(dt) {
     if (!loaded) return;
+    if (!gameStarted) return;
     dt = Math.min(dt, 0.033);
     if (state.paused || state.gameOver) return;
 
@@ -2958,6 +2973,10 @@
       drawLoading();
       return;
     }
+    if (!gameStarted) {
+      drawStartMenu();
+      return;
+    }
     drawBackground();
     drawReferee();
     drawCourtActors();
@@ -2977,6 +2996,41 @@
     ctx.font = "20px 'Courier New', monospace";
     ctx.textAlign = "center";
     ctx.fillText("LOADING COURT...", W / 2, H / 2);
+  }
+
+  function drawStartMenu() {
+    const img = assets.startMenu;
+    ctx.save();
+    ctx.fillStyle = "#030712";
+    ctx.fillRect(0, 0, W, H);
+    if (img && img.complete && img.naturalWidth) {
+      const scale = Math.max(W / img.naturalWidth, H / img.naturalHeight);
+      const dw = img.naturalWidth * scale;
+      const dh = img.naturalHeight * scale;
+      ctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+    }
+    const fade = ctx.createLinearGradient(0, H * 0.55, 0, H);
+    fade.addColorStop(0, "rgba(0,0,0,0)");
+    fade.addColorStop(1, "rgba(0,0,0,0.72)");
+    ctx.fillStyle = fade;
+    ctx.fillRect(0, 0, W, H);
+
+    const b = START_BUTTON;
+    const pulse = 1 + Math.sin(performance.now() / 760) * 0.035;
+    const bw = b.w * pulse;
+    const bh = b.h * pulse;
+    const bx = b.x + (b.w - bw) / 2;
+    const by = b.y + (b.h - bh) / 2;
+    ctx.shadowColor = "rgba(255,210,46,0.55)";
+    ctx.shadowBlur = 18 + Math.sin(performance.now() / 760) * 5;
+    drawPanel(bx, by, bw, bh, "rgba(255, 196, 0, 0.87)", "#f3ebcd");
+    ctx.shadowBlur = 0;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = "bold 30px 'inter', monospace";
+    ctx.fillStyle = "#f3ebcd";
+    ctx.fillText("START", b.x + b.w / 2, b.y + b.h / 2 + 2);
+    ctx.restore();
   }
 
   function drawBackground() {
@@ -4371,6 +4425,10 @@
     unlockGameAudio();
     const pt = screenPoint(event);
     canvas.setPointerCapture(event.pointerId);
+    if (!gameStarted) {
+      if (pointInRect(pt, START_BUTTON)) startGame();
+      return;
+    }
     if (handleConfigPointerDown(pt, event.pointerId)) return;
     if (state.paused && handlePauseMenuPointerDown(pt, event.pointerId)) return;
     if (pointInRect(pt, PAUSE_BUTTON)) {
@@ -4395,6 +4453,18 @@
       input.actionPointers.set(event.pointerId, button.action);
       performAction(button.action, true);
     }
+  }
+
+  function startGame() {
+    gameStarted = true;
+    state = createGameState();
+    input.chargingShoot = false;
+    input.actionPointers.clear();
+    input.joystickPointer = null;
+    input.songVolumePointer = null;
+    input.configScrollPointer = null;
+    heldBounceNearFloor = false;
+    syncAmbientMusic();
   }
 
   function handlePauseMenuPointerDown(pt, pointerId) {
@@ -4527,6 +4597,13 @@
 
   function keyDown(event) {
     unlockGameAudio();
+    if (!gameStarted) {
+      if (event.code === "Enter" || event.code === "Space") {
+        event.preventDefault();
+        startGame();
+      }
+      return;
+    }
     if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space"].includes(event.code)) {
       event.preventDefault();
     }
