@@ -56,10 +56,10 @@
   const MAX_AMBIENT_MUSIC_VOLUME = 0.03;
   const DEFAULT_AMBIENT_MUSIC_LEVEL = 0.5;
   const SFX_AUDIO_POOL_SIZE = isMobileDevice() ? 1 : 2;
-  const MOBILE_BALL_BOUNCE_POOL_SIZE = 3;
+  const MOBILE_BALL_BOUNCE_POOL_SIZE = 2;
   const MOBILE_DPR_CAP = 1;
   const DESKTOP_DPR_CAP = 2;
-  const MOBILE_FRAME_MS = 1000 / 45;
+  const MOBILE_FRAME_MS = 1000 / 30;
   const SCORE_SOUND_START_SECONDS = 8;
   const SCORE_SOUND_PLAY_SECONDS = 4;
   const SCORE_SOUND_FADE_SECONDS = 0.5;
@@ -67,7 +67,7 @@
   const BALL_BOUNCE_SOUND_START_SECONDS = 4.5;
   const BALL_BOUNCE_SOUND_PLAY_SECONDS = .8;
   const BALL_BOUNCE_SOUND_VOLUME = 0.5;
-  const BALL_BOUNCE_MIN_INTERVAL_SECONDS = 0.2;
+  const BALL_BOUNCE_MIN_INTERVAL_SECONDS = 0.3;
   const BALL_LAUNCH_SOUND_VOLUME = 0.62;
   const BASKET_HIT_SOUND_PLAY_SECONDS = 0.7;
   const BASKET_HIT_SOUND_VOLUME = 0.7;
@@ -256,7 +256,10 @@
   let configScrollY = 0;
   let backgroundCacheCanvas = null;
   let startMenuCacheCanvas = null;
-  const ambientMusicAudios = typeof Audio === "function"
+  const useAmbientBufferAudio = isMobileDevice() &&
+    Math.min(window.innerWidth, window.innerHeight) <= 760 &&
+    Boolean(ambientAudioContextClass());
+  const ambientMusicAudios = typeof Audio === "function" && !useAmbientBufferAudio
     ? AUDIO_PATHS.ambientSongs.map((path) => new Audio(path))
     : [];
   const scoreAudio = typeof Audio === "function" ? new Audio(AUDIO_PATHS.score) : null;
@@ -288,6 +291,14 @@
   let ambientAudioContext = null;
   let ambientGainNode = null;
   const ambientSourceNodes = new WeakMap();
+  const ambientAudioBuffers = new Array(AUDIO_PATHS.ambientSongs.length).fill(null);
+  const ambientBufferLoadPromises = new Map();
+  let ambientBufferSourceNode = null;
+  let ambientBufferPlaying = false;
+  let ambientBufferPausedAt = 0;
+  let ambientBufferStartedAt = 0;
+  let ambientBufferStartToken = 0;
+  let ambientBufferFailed = false;
   let scoreSoundStopTimer = null;
   let scoreSoundFadeFrame = null;
   let scoreSoundStartedAt = 0;
@@ -311,36 +322,29 @@
     audio.load();
   }
   if (scoreAudio) {
-    scoreAudio.preload = "auto";
-    scoreAudio.volume = 0;
-    scoreAudio.load();
+    prepareAudioElement(scoreAudio, 0);
   }
   for (const audio of ballBounceAudios) {
-    audio.preload = "auto";
-    audio.playsInline = true;
-    audio.volume = BALL_BOUNCE_SOUND_VOLUME;
-    audio.load();
+    prepareAudioElement(audio, BALL_BOUNCE_SOUND_VOLUME, true);
   }
   for (const audio of mobileBallBounceAudios) {
-    audio.preload = "auto";
-    audio.playsInline = true;
-    audio.volume = BALL_BOUNCE_SOUND_VOLUME;
-    audio.load();
+    prepareAudioElement(audio, BALL_BOUNCE_SOUND_VOLUME, true);
   }
   for (const audio of ballLaunchAudios) {
-    audio.preload = "auto";
-    audio.volume = BALL_LAUNCH_SOUND_VOLUME;
-    audio.load();
+    prepareAudioElement(audio, BALL_LAUNCH_SOUND_VOLUME);
   }
   for (const audio of basketHitAudios) {
-    audio.preload = "auto";
-    audio.volume = BASKET_HIT_SOUND_VOLUME;
-    audio.load();
+    prepareAudioElement(audio, BASKET_HIT_SOUND_VOLUME);
   }
   for (const audio of shoeSqueakAudios) {
-    audio.preload = "auto";
-    audio.volume = SHOE_SQUEAK_SOUND_VOLUME;
-    audio.load();
+    prepareAudioElement(audio, SHOE_SQUEAK_SOUND_VOLUME);
+  }
+
+  function prepareAudioElement(audio, volume, forceLoad = false) {
+    audio.preload = isMobileDevice() && !forceLoad ? "metadata" : "auto";
+    audio.playsInline = true;
+    audio.volume = volume;
+    if (!isMobileDevice() || forceLoad) audio.load();
   }
 
   function createImage(src) {
@@ -366,9 +370,9 @@
 
   function unlockGameAudio() {
     audioUnlocked = true;
-    warmMobileBallBounceAudio();
     ensureAmbientAudioGraph();
     resumeAmbientAudioContext();
+    warmMobileBallBounceAudio();
     syncAmbientMusic();
   }
 
@@ -378,11 +382,15 @@
 
   function ensureAmbientAudioGraph() {
     const AudioContextClass = ambientAudioContextClass();
-    if (!AudioContextClass || !ambientMusicAudios.length) return false;
+    if (!AudioContextClass) return false;
     if (!ambientAudioContext) {
       ambientAudioContext = new AudioContextClass();
       ambientGainNode = ambientAudioContext.createGain();
       ambientGainNode.connect(ambientAudioContext.destination);
+    }
+    if (useAmbientBufferAudio) {
+      applyAmbientMusicVolume();
+      return true;
     }
     for (const audio of ambientMusicAudios) {
       if (ambientSourceNodes.has(audio)) continue;
@@ -399,20 +407,34 @@
   }
 
   function resumeAmbientAudioContext() {
-    if (!ambientAudioContext || ambientAudioContext.state !== "suspended") return;
+    if (!ambientAudioContext || ambientAudioContext.state === "running") return;
     const resumePromise = ambientAudioContext.resume();
     if (resumePromise && typeof resumePromise.then === "function") {
       resumePromise.then(syncAmbientMusic).catch(() => {});
     }
   }
 
-  function selectNextAmbientSong() {
-    if (!ambientMusicAudios.length) return null;
-    let nextIndex = Math.floor(Math.random() * ambientMusicAudios.length);
-    if (ambientMusicAudios.length > 1 && nextIndex === ambientMusicIndex) {
-      nextIndex = (nextIndex + 1 + Math.floor(Math.random() * (ambientMusicAudios.length - 1))) % ambientMusicAudios.length;
+  function selectNextAmbientIndex() {
+    const songCount = AUDIO_PATHS.ambientSongs.length;
+    if (!songCount) return -1;
+    let nextIndex = Math.floor(Math.random() * songCount);
+    if (songCount > 1 && nextIndex === ambientMusicIndex) {
+      nextIndex = (nextIndex + 1 + Math.floor(Math.random() * (songCount - 1))) % songCount;
     }
     ambientMusicIndex = nextIndex;
+    ambientBufferPausedAt = 0;
+    if (useAmbientBufferAudio) {
+      for (let i = 0; i < ambientAudioBuffers.length; i += 1) {
+        if (i !== ambientMusicIndex) ambientAudioBuffers[i] = null;
+      }
+    }
+    return ambientMusicIndex;
+  }
+
+  function selectNextAmbientSong() {
+    if (!ambientMusicAudios.length) return null;
+    const nextIndex = selectNextAmbientIndex();
+    if (nextIndex < 0) return null;
     ambientMusicAudio = ambientMusicAudios[ambientMusicIndex];
     try {
       ambientMusicAudio.currentTime = 0;
@@ -422,7 +444,133 @@
     return ambientMusicAudio;
   }
 
+  function currentAmbientBuffer() {
+    return ambientMusicIndex >= 0 ? ambientAudioBuffers[ambientMusicIndex] : null;
+  }
+
+  function decodeAmbientAudioData(arrayBuffer) {
+    if (!ambientAudioContext) return Promise.resolve(null);
+    try {
+      const result = ambientAudioContext.decodeAudioData(arrayBuffer.slice(0));
+      if (result && typeof result.then === "function") return result;
+    } catch {
+      // Older WebKit builds require the callback form below.
+    }
+    return new Promise((resolve, reject) => {
+      try {
+        ambientAudioContext.decodeAudioData(arrayBuffer.slice(0), resolve, reject);
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
+  function loadAmbientBuffer(index) {
+    if (!useAmbientBufferAudio || ambientBufferFailed || typeof fetch !== "function" || !ensureAmbientAudioGraph()) {
+      return Promise.resolve(null);
+    }
+    if (ambientAudioBuffers[index]) return Promise.resolve(ambientAudioBuffers[index]);
+    const existing = ambientBufferLoadPromises.get(index);
+    if (existing) return existing;
+    const promise = fetch(AUDIO_PATHS.ambientSongs[index], { cache: "force-cache" })
+      .then((response) => {
+        if (!response.ok) throw new Error(`Audio load failed: ${response.status}`);
+        return response.arrayBuffer();
+      })
+      .then(decodeAmbientAudioData)
+      .then((buffer) => {
+        ambientAudioBuffers[index] = buffer;
+        return buffer;
+      })
+      .catch(() => null)
+      .finally(() => {
+        ambientBufferLoadPromises.delete(index);
+      });
+    ambientBufferLoadPromises.set(index, promise);
+    return promise;
+  }
+
+  function stopAmbientBufferSource() {
+    if (!ambientBufferSourceNode) return;
+    const source = ambientBufferSourceNode;
+    ambientBufferSourceNode = null;
+    source.onended = null;
+    try {
+      source.stop();
+    } catch {
+      // The source may have already ended.
+    }
+    try {
+      source.disconnect();
+    } catch {
+      // Some Web Audio implementations ignore duplicate disconnects.
+    }
+    ambientBufferPlaying = false;
+  }
+
+  function pauseAmbientBufferMusic() {
+    const buffer = currentAmbientBuffer();
+    if (ambientBufferPlaying && ambientAudioContext && buffer) {
+      ambientBufferPausedAt = clamp(
+        ambientAudioContext.currentTime - ambientBufferStartedAt,
+        0,
+        Math.max(0, buffer.duration - 0.05)
+      );
+    }
+    stopAmbientBufferSource();
+  }
+
+  function startAmbientBufferMusic(buffer) {
+    if (!ambientAudioContext || !ambientGainNode || !buffer) return;
+    stopAmbientBufferSource();
+    const source = ambientAudioContext.createBufferSource();
+    const startOffset = buffer.duration > 0 ? ambientBufferPausedAt % buffer.duration : 0;
+    source.buffer = buffer;
+    source.connect(ambientGainNode);
+    ambientBufferSourceNode = source;
+    ambientBufferPlaying = true;
+    ambientBufferStartedAt = ambientAudioContext.currentTime - startOffset;
+    source.onended = () => {
+      if (source !== ambientBufferSourceNode) return;
+      ambientBufferSourceNode = null;
+      ambientBufferPlaying = false;
+      ambientBufferPausedAt = 0;
+      ambientMusicIndex = -1;
+      syncAmbientMusic();
+    };
+    source.start(0, startOffset);
+  }
+
+  function syncAmbientBufferMusic() {
+    if (!useAmbientBufferAudio || ambientBufferFailed || !ensureAmbientAudioGraph()) return false;
+    if (ambientAudioContext && ambientAudioContext.state !== "running") {
+      resumeAmbientAudioContext();
+      return true;
+    }
+    const index = ambientMusicIndex >= 0 ? ambientMusicIndex : selectNextAmbientIndex();
+    if (index < 0) return false;
+    const buffer = ambientAudioBuffers[index];
+    if (buffer) {
+      if (!ambientBufferPlaying) startAmbientBufferMusic(buffer);
+      return true;
+    }
+    const token = ++ambientBufferStartToken;
+    loadAmbientBuffer(index).then((loadedBuffer) => {
+      if (token !== ambientBufferStartToken) return;
+      if (!loadedBuffer) {
+        ambientBufferFailed = true;
+        return;
+      }
+      syncAmbientMusic();
+    });
+    return true;
+  }
+
   function pauseAmbientMusic() {
+    ambientBufferStartToken += 1;
+    if (useAmbientBufferAudio) {
+      pauseAmbientBufferMusic();
+    }
     if (ambientMusicAudio && !ambientMusicAudio.paused) {
       ambientMusicAudio.pause();
     }
@@ -443,7 +591,7 @@
   }
 
   function syncAmbientMusic() {
-    const canTryStartMenuAutoplay = !gameStarted && !audioUnlocked && !ambientAutoplayAttempted;
+    const canTryStartMenuAutoplay = !useAmbientBufferAudio && !gameStarted && !audioUnlocked && !ambientAutoplayAttempted;
     const shouldPlay = soundEnabled &&
       songEnabled &&
       songVolume > 0 &&
@@ -462,6 +610,7 @@
       ensureAmbientAudioGraph();
       resumeAmbientAudioContext();
     }
+    if (useAmbientBufferAudio && audioUnlocked && syncAmbientBufferMusic()) return;
     const audio = ambientMusicAudio || selectNextAmbientSong();
     if (!audio) return;
     ambientMusicAudio = audio;
@@ -4830,7 +4979,8 @@
     if (isMobileDevice()) {
       lastMobileFrameAt = now;
     }
-    const dt = (now - lastTime) / 1000;
+    const maxDt = isMobileDevice() ? 0.045 : 0.08;
+    const dt = Math.min((now - lastTime) / 1000, maxDt);
     lastTime = now;
     update(dt);
     draw();
