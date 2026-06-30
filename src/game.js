@@ -56,6 +56,7 @@
   const MAX_AMBIENT_MUSIC_VOLUME = 0.03;
   const DEFAULT_AMBIENT_MUSIC_LEVEL = 0.5;
   const SFX_AUDIO_POOL_SIZE = isMobileDevice() ? 1 : 2;
+  const MOBILE_BALL_BOUNCE_POOL_SIZE = 3;
   const MOBILE_DPR_CAP = 1;
   const DESKTOP_DPR_CAP = 2;
   const MOBILE_FRAME_MS = 1000 / 45;
@@ -181,7 +182,7 @@
     redBasketLeftOffset: -16,
     redBasketTopOffset: -42,
     ballBounceHeight: 4,
-    ballSize: 18,
+    ballSize: 14,
   };
   const HITBOXES = { ...HITBOX_DEFAULTS };
   const NO_CONFIG_MAX = Number.POSITIVE_INFINITY;
@@ -259,8 +260,11 @@
     ? AUDIO_PATHS.ambientSongs.map((path) => new Audio(path))
     : [];
   const scoreAudio = typeof Audio === "function" ? new Audio(AUDIO_PATHS.score) : null;
-  const ballBounceAudios = typeof Audio === "function"
+  const ballBounceAudios = typeof Audio === "function" && !isMobileDevice()
     ? Array.from({ length: SFX_AUDIO_POOL_SIZE }, () => new Audio(AUDIO_PATHS.bounce))
+    : [];
+  const mobileBallBounceAudios = typeof Audio === "function" && isMobileDevice()
+    ? Array.from({ length: MOBILE_BALL_BOUNCE_POOL_SIZE }, () => new Audio(AUDIO_PATHS.bounce))
     : [];
   const ballLaunchAudios = typeof Audio === "function"
     ? Array.from({ length: SFX_AUDIO_POOL_SIZE }, () => new Audio(AUDIO_PATHS.launch))
@@ -272,6 +276,7 @@
     ? Array.from({ length: SFX_AUDIO_POOL_SIZE }, () => new Audio(AUDIO_PATHS.shoeSqueak))
     : [];
   const ballBounceStopTimers = new Map();
+  const mobileBallBounceStopTimers = new Map();
   const basketHitStopTimers = new Map();
   const shoeSqueakStopTimers = new Map();
   let audioUnlocked = false;
@@ -287,6 +292,8 @@
   let scoreSoundFadeFrame = null;
   let scoreSoundStartedAt = 0;
   let ballBounceAudioIndex = 0;
+  let mobileBallBounceAudioIndex = 0;
+  let mobileBallBounceWarmed = false;
   let ballLaunchAudioIndex = 0;
   let basketHitAudioIndex = 0;
   let shoeSqueakAudioIndex = 0;
@@ -310,6 +317,13 @@
   }
   for (const audio of ballBounceAudios) {
     audio.preload = "auto";
+    audio.playsInline = true;
+    audio.volume = BALL_BOUNCE_SOUND_VOLUME;
+    audio.load();
+  }
+  for (const audio of mobileBallBounceAudios) {
+    audio.preload = "auto";
+    audio.playsInline = true;
     audio.volume = BALL_BOUNCE_SOUND_VOLUME;
     audio.load();
   }
@@ -352,6 +366,7 @@
 
   function unlockGameAudio() {
     audioUnlocked = true;
+    warmMobileBallBounceAudio();
     ensureAmbientAudioGraph();
     resumeAmbientAudioContext();
     syncAmbientMusic();
@@ -433,6 +448,7 @@
       songEnabled &&
       songVolume > 0 &&
       (audioUnlocked || canTryStartMenuAutoplay) &&
+      !state.paused &&
       !state.gameOver &&
       !document.hidden;
     if (!shouldPlay) {
@@ -617,6 +633,13 @@
     ballBounceStopTimers.delete(audio);
   }
 
+  function clearMobileBallBounceStopTimer(audio) {
+    const timer = mobileBallBounceStopTimers.get(audio);
+    if (!timer) return;
+    clearTimeout(timer);
+    mobileBallBounceStopTimers.delete(audio);
+  }
+
   function ballBounceStartTime(audio) {
     if (!audio || !Number.isFinite(audio.duration) || audio.duration <= 0) {
       return BALL_BOUNCE_SOUND_START_SECONDS;
@@ -624,8 +647,27 @@
     return Math.min(BALL_BOUNCE_SOUND_START_SECONDS, Math.max(0, audio.duration - 0.05));
   }
 
+  function seekBallBounceAudio(audio) {
+    try {
+      audio.currentTime = ballBounceStartTime(audio);
+      return true;
+    } catch {
+      try {
+        audio.load();
+      } catch {
+        // Some mobile browsers delay media loading until after the first gesture.
+      }
+      return false;
+    }
+  }
+
   function stopBallBounceSound(audio) {
     clearBallBounceStopTimer(audio);
+    audio.pause();
+  }
+
+  function stopMobileBallBounceSound(audio) {
+    clearMobileBallBounceStopTimer(audio);
     audio.pause();
   }
 
@@ -633,24 +675,69 @@
     for (const audio of ballBounceAudios) {
       stopBallBounceSound(audio);
     }
+    for (const audio of mobileBallBounceAudios) {
+      stopMobileBallBounceSound(audio);
+    }
+  }
+
+  function finishMobileBallBounceWarmup(audio) {
+    audio.pause();
+    audio.muted = false;
+    audio.volume = BALL_BOUNCE_SOUND_VOLUME;
+    seekBallBounceAudio(audio);
+  }
+
+  function warmMobileBallBounceAudio() {
+    if (!isMobileDevice() || mobileBallBounceWarmed || mobileBallBounceAudios.length === 0) return;
+    mobileBallBounceWarmed = true;
+    for (const audio of mobileBallBounceAudios) {
+      clearMobileBallBounceStopTimer(audio);
+      audio.muted = true;
+      audio.volume = 0;
+      seekBallBounceAudio(audio);
+      const playPromise = audio.play();
+      if (playPromise && typeof playPromise.then === "function") {
+        playPromise
+          .then(() => setTimeout(() => finishMobileBallBounceWarmup(audio), 40))
+          .catch(() => finishMobileBallBounceWarmup(audio));
+      } else {
+        setTimeout(() => finishMobileBallBounceWarmup(audio), 40);
+      }
+    }
+  }
+
+  function playMobileBallBounceSound() {
+    if (mobileBallBounceAudios.length === 0) return false;
+    const audio = mobileBallBounceAudios[mobileBallBounceAudioIndex % mobileBallBounceAudios.length];
+    mobileBallBounceAudioIndex += 1;
+    clearMobileBallBounceStopTimer(audio);
+    audio.pause();
+    audio.muted = false;
+    audio.volume = BALL_BOUNCE_SOUND_VOLUME;
+    seekBallBounceAudio(audio);
+    const playPromise = audio.play();
+    if (playPromise && typeof playPromise.catch === "function") {
+      playPromise.catch(() => {});
+    }
+    const timer = setTimeout(() => stopMobileBallBounceSound(audio), BALL_BOUNCE_SOUND_PLAY_SECONDS * 1000);
+    mobileBallBounceStopTimers.set(audio, timer);
+    return true;
   }
 
   function playBallBounceSound() {
-    if (!soundEnabled || !audioUnlocked || ballBounceAudios.length === 0) return;
+    if (!soundEnabled || !audioUnlocked) return;
     const now = performance.now();
     if (now - lastBallBounceSoundAt < BALL_BOUNCE_MIN_INTERVAL_SECONDS * 1000) return;
     lastBallBounceSoundAt = now;
 
+    if (isMobileDevice() && playMobileBallBounceSound()) return;
+    if (ballBounceAudios.length === 0) return;
     const audio = ballBounceAudios[ballBounceAudioIndex % ballBounceAudios.length];
     ballBounceAudioIndex += 1;
     clearBallBounceStopTimer(audio);
     audio.pause();
     audio.volume = BALL_BOUNCE_SOUND_VOLUME;
-    try {
-      audio.currentTime = ballBounceStartTime(audio);
-    } catch {
-      // Some browsers only allow seeking after metadata is ready.
-    }
+    seekBallBounceAudio(audio);
     const playPromise = audio.play();
     if (playPromise && typeof playPromise.catch === "function") {
       playPromise.catch(() => {});
