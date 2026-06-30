@@ -45,8 +45,6 @@
     ambientSongs: [
       "assets/generated/ambient-song-1.mp3",
       "assets/generated/ambient-song-2.mp3",
-      "assets/generated/ambient-song-3.mp3",
-      "assets/generated/ambient-song-4.mp3",
     ],
     score: "assets/generated/score-basket.mp3",
     bounce: "assets/generated/ball-bounce.mp3",
@@ -54,16 +52,17 @@
     basketHit: "assets/generated/basket-hit.mp3",
     shoeSqueak: "assets/generated/shoe-squeak.mp3",
   };
-  const DEFAULT_AMBIENT_MUSIC_VOLUME = 0.03;
+  const MAX_AMBIENT_MUSIC_VOLUME = 0.03;
+  const DEFAULT_AMBIENT_MUSIC_LEVEL = 0.5;
+  const SFX_AUDIO_POOL_SIZE = 2;
   const SCORE_SOUND_START_SECONDS = 8;
   const SCORE_SOUND_PLAY_SECONDS = 4;
   const SCORE_SOUND_FADE_SECONDS = 0.5;
   const SCORE_SOUND_VOLUME = 0.82;
-  const BALL_BOUNCE_SOUND_START_SECONDS = 2.4;
-  const BALL_BOUNCE_SOUND_PLAY_SECONDS = 0.5;
-  const BALL_BOUNCE_SOUND_VOLUME = 0.58;
-  const BALL_BOUNCE_SOUND_PLAYBACK_RATE = 0.8;
-  const BALL_BOUNCE_MIN_INTERVAL_SECONDS = 0.28;
+  const BALL_BOUNCE_SOUND_START_SECONDS = 4.5;
+  const BALL_BOUNCE_SOUND_PLAY_SECONDS = .8;
+  const BALL_BOUNCE_SOUND_VOLUME = 0.5;
+  const BALL_BOUNCE_MIN_INTERVAL_SECONDS = 0.351;
   const BALL_LAUNCH_SOUND_VOLUME = 0.62;
   const BASKET_HIT_SOUND_PLAY_SECONDS = 0.7;
   const BASKET_HIT_SOUND_VOLUME = 0.7;
@@ -88,8 +87,8 @@
     { action: "STEAL", icon: 4, x: 452, y: 842, r: 58 },
   ];
   const JOYSTICK = { x: 108, y: 824, r: 72, knob: 35 };
-  const PAUSE_BUTTON = { x: 490, y: 14, w: 36, h: 36 };
-  const CONFIG_BUTTON = { x: 490, y: 56, w: 36, h: 36 };
+  const PAUSE_BUTTON = { x: 492, y: 13, w: 34, h: 28 };
+  const CONFIG_BUTTON = { x: 492, y: 45, w: 34, h: 28 };
   const PAUSE_MENU = { x: 112, y: 330, w: 316, h: 300 };
   const HITBOX_CONFIG_PANEL_HEIGHT_RATIO = 0.7;
   const HITBOX_CONFIG_ROW_HEIGHT = 36;
@@ -251,16 +250,16 @@
     : [];
   const scoreAudio = typeof Audio === "function" ? new Audio(AUDIO_PATHS.score) : null;
   const ballBounceAudios = typeof Audio === "function"
-    ? Array.from({ length: 4 }, () => new Audio(AUDIO_PATHS.bounce))
+    ? Array.from({ length: SFX_AUDIO_POOL_SIZE }, () => new Audio(AUDIO_PATHS.bounce))
     : [];
   const ballLaunchAudios = typeof Audio === "function"
-    ? Array.from({ length: 4 }, () => new Audio(AUDIO_PATHS.launch))
+    ? Array.from({ length: SFX_AUDIO_POOL_SIZE }, () => new Audio(AUDIO_PATHS.launch))
     : [];
   const basketHitAudios = typeof Audio === "function"
-    ? Array.from({ length: 3 }, () => new Audio(AUDIO_PATHS.basketHit))
+    ? Array.from({ length: SFX_AUDIO_POOL_SIZE }, () => new Audio(AUDIO_PATHS.basketHit))
     : [];
   const shoeSqueakAudios = typeof Audio === "function"
-    ? Array.from({ length: 3 }, () => new Audio(AUDIO_PATHS.shoeSqueak))
+    ? Array.from({ length: SFX_AUDIO_POOL_SIZE }, () => new Audio(AUDIO_PATHS.shoeSqueak))
     : [];
   const ballBounceStopTimers = new Map();
   const basketHitStopTimers = new Map();
@@ -283,7 +282,7 @@
   for (const audio of ambientMusicAudios) {
     audio.loop = false;
     audio.preload = "auto";
-    audio.volume = songVolume;
+    audio.volume = effectiveSongVolume();
     audio.addEventListener("ended", () => {
       if (audio !== ambientMusicAudio) return;
       ambientMusicAudio = null;
@@ -363,9 +362,14 @@
     }
   }
 
+  function effectiveSongVolume() {
+    return clamp(songVolume, 0, 1) * MAX_AMBIENT_MUSIC_VOLUME;
+  }
+
   function applyAmbientMusicVolume() {
+    const volume = effectiveSongVolume();
     for (const audio of ambientMusicAudios) {
-      audio.volume = songVolume;
+      audio.volume = volume;
     }
   }
 
@@ -378,7 +382,7 @@
     const audio = ambientMusicAudio || selectNextAmbientSong();
     if (!audio) return;
     ambientMusicAudio = audio;
-    ambientMusicAudio.volume = songVolume;
+    ambientMusicAudio.volume = effectiveSongVolume();
     if (!ambientMusicAudio.paused) return;
     const playPromise = ambientMusicAudio.play();
     if (playPromise && typeof playPromise.catch === "function") {
@@ -420,16 +424,16 @@
 
   function loadSongVolume() {
     try {
-      const saved = Number.parseFloat(localStorage.getItem("pixelBasketballSongVolume") || "");
-      return Number.isFinite(saved) ? clamp(saved, 0, 1) : DEFAULT_AMBIENT_MUSIC_VOLUME;
+      const saved = Number.parseFloat(localStorage.getItem("pixelBasketballSongLevel") || "");
+      return Number.isFinite(saved) ? clamp(saved, 0, 1) : DEFAULT_AMBIENT_MUSIC_LEVEL;
     } catch {
-      return DEFAULT_AMBIENT_MUSIC_VOLUME;
+      return DEFAULT_AMBIENT_MUSIC_LEVEL;
     }
   }
 
   function saveSongVolume() {
     try {
-      localStorage.setItem("pixelBasketballSongVolume", songVolume.toFixed(3));
+      localStorage.setItem("pixelBasketballSongLevel", songVolume.toFixed(3));
     } catch {
       // Audio should keep working even if browser storage is unavailable.
     }
@@ -556,7 +560,6 @@
   function stopBallBounceSound(audio) {
     clearBallBounceStopTimer(audio);
     audio.pause();
-    audio.playbackRate = 1;
   }
 
   function stopBallBounceSounds() {
@@ -576,7 +579,6 @@
     clearBallBounceStopTimer(audio);
     audio.pause();
     audio.volume = BALL_BOUNCE_SOUND_VOLUME;
-    audio.playbackRate = BALL_BOUNCE_SOUND_PLAYBACK_RATE;
     try {
       audio.currentTime = ballBounceStartTime(audio);
     } catch {
@@ -586,10 +588,7 @@
     if (playPromise && typeof playPromise.catch === "function") {
       playPromise.catch(() => {});
     }
-    const timer = setTimeout(
-      () => stopBallBounceSound(audio),
-      (BALL_BOUNCE_SOUND_PLAY_SECONDS / BALL_BOUNCE_SOUND_PLAYBACK_RATE) * 1000
-    );
+    const timer = setTimeout(() => stopBallBounceSound(audio), BALL_BOUNCE_SOUND_PLAY_SECONDS * 1000);
     ballBounceStopTimers.set(audio, timer);
   }
 
@@ -1548,6 +1547,17 @@
     return state.possession === "blue" ? BUTTONS_OFFENSE : BUTTONS_DEFENSE;
   }
 
+  function useTouchControls() {
+    const coarsePointer = Boolean(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+    const touchCapable = Boolean(navigator.maxTouchPoints && navigator.maxTouchPoints > 0);
+    const narrowViewport = Math.min(window.innerWidth, window.innerHeight) <= 760;
+    return coarsePointer || (touchCapable && narrowViewport);
+  }
+
+  function primaryDesktopAction() {
+    return state.possession === "blue" ? "PASS" : "STEAL";
+  }
+
   function screenPoint(event) {
     const rect = canvas.getBoundingClientRect();
     return {
@@ -1987,6 +1997,10 @@
     }
     if (state.paused && action !== "PAUSE") return;
     if (state.inbound) return;
+    if (isDown && (action === "PASS" || action === "SHOOT")) {
+      stopBallBounceSounds();
+      heldBounceNearFloor = false;
+    }
     if (action === "PASS" && isDown) performPass();
     if (action === "SHOOT" && isDown) beginShootCharge();
     if (action === "SHOOT" && !isDown) releaseShootCharge();
@@ -3660,44 +3674,76 @@
     ctx.save();
     ctx.fillStyle = "rgba(0,0,0,0.58)";
     ctx.fillRect(0, 0, W, 102);
-    drawPanel(14, 13, 190, 60, "#073e84", "#27a3ff");
-    drawPanel(336, 13, 150, 60, "#811111", "#ff4237");
-    drawPanel(210, 13, 120, 60, "#08090b", "#444b54");
-
-    ctx.textAlign = "left";
-    ctx.textBaseline = "middle";
-    ctx.font = "bold 14px 'Courier New', monospace";
-    ctx.fillStyle = "#ffffff";
-    ctx.fillText("RIVERTOWN", 70, 43);
-    ctx.fillText("PINEHOLLOW", 398, 43);
-
-    drawTeamBall(39, 43, "#1c8bff");
+    const teamW = 170;
+    const teamH = 60;
+    const boardY = 13;
+    drawTeamScorePanel({ x: 14, y: boardY, w: teamW, h: teamH }, "blue");
+    const centerPanel = { x: 190, y: boardY, w: 120, h: teamH };
+    drawPanel(centerPanel.x, centerPanel.y, centerPanel.w, centerPanel.h, "#08090b", "#444b54");
+    drawTeamScorePanel({ x: 316, y: boardY, w: teamW, h: teamH }, "red");
 
     ctx.textAlign = "center";
-    ctx.textBaseline = "alphabetic";
-    ctx.font = "bold 35px 'Courier New', monospace";
-    ctx.fillStyle = "#ffffff";
-    ctx.fillText(String(state.score.blue), 174, 52);
-    ctx.fillText(String(state.score.red), 364, 52);
+    ctx.textBaseline = "middle";
     ctx.font = "bold 23px 'Courier New', monospace";
     ctx.fillStyle = "#ffd22e";
-    ctx.fillText(formatClock(state.gameTime), 270, 38);
+    ctx.fillText(formatClock(state.gameTime), centerPanel.x + centerPanel.w / 2, centerPanel.y + 20);
     ctx.font = "bold 17px 'Courier New', monospace";
     ctx.fillStyle = "#ffffff";
-    ctx.fillText(periodLabel(), 246, 63);
+    ctx.fillText(periodLabel(), centerPanel.x + 38, centerPanel.y + 45);
     ctx.fillStyle = "#ff2b2b";
-    ctx.fillText(String(Math.max(0, Math.ceil(state.shotClock))), 303, 63);
+    ctx.fillText(String(Math.max(0, Math.ceil(state.shotClock))), centerPanel.x + centerPanel.w - 38, centerPanel.y + 45);
 
     drawPauseButton();
     drawConfigButton();
     ctx.restore();
   }
 
-  function drawTeamBall(x, y, color) {
+  function drawTeamScorePanel(rect, teamId) {
+    const isBlue = teamId === "blue";
+    const fill = isBlue ? "#073e84" : "#811111";
+    const stroke = isBlue ? "#27a3ff" : "#ff4237";
+    const ballColor = isBlue ? "#1c8bff" : "#d32220";
+    const name = state.teams[teamId].name;
+    const score = String(state.score[teamId]);
+    drawPanel(rect.x, rect.y, rect.w, rect.h, fill, stroke);
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(rect.x + 4, rect.y + 4, rect.w - 8, rect.h - 8);
+    ctx.clip();
+    ctx.textBaseline = "middle";
+
+    const cy = rect.y + rect.h / 2;
+    const scoreX = isBlue ? rect.x + rect.w - 25 : rect.x + 27;
+    const ballX = isBlue ? rect.x + 25 : rect.x + rect.w - 25;
+
+    if (isBlue) {
+      drawTeamBall(ballX, cy, ballColor, 18);
+      ctx.textAlign = "left";
+      ctx.font = "bold 13px 'arial', monospace";
+      ctx.fillStyle = "#ffffff";
+      ctx.fillText(name, rect.x + 56, cy, 74);
+      ctx.textAlign = "center";
+      ctx.font = "bold 30px 'arial', monospace";
+      ctx.fillText(score, scoreX, cy + 2, 46);
+    } else {
+      ctx.textAlign = "center";
+      ctx.font = "bold 30px 'arial', monospace";
+      ctx.fillStyle = "#ffffff";
+      ctx.fillText(score, scoreX, cy + 2, 46);
+      ctx.textAlign = "center";
+      ctx.font = "bold 13px 'arial', monospace";
+      ctx.fillText(name, rect.x + 80, cy, 72);
+      drawTeamBall(ballX, cy, ballColor, 18);
+    }
+    ctx.restore();
+  }
+
+  function drawTeamBall(x, y, color, r = 22) {
     ctx.save();
     ctx.fillStyle = color;
     ctx.beginPath();
-    ctx.arc(x, y, 22, 0, Math.PI * 2);
+    ctx.arc(x, y, r, 0, Math.PI * 2);
     ctx.fill();
     ctx.strokeStyle = "rgba(0,0,0,0.85)";
     ctx.lineWidth = 3;
@@ -3705,11 +3751,11 @@
     ctx.strokeStyle = "#ffffff";
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(x - 18, y);
-    ctx.lineTo(x + 18, y);
-    ctx.moveTo(x, y - 18);
-    ctx.lineTo(x, y + 18);
-    ctx.arc(x - 8, y, 16, -Math.PI / 2, Math.PI / 2);
+    ctx.moveTo(x - r * 0.82, y);
+    ctx.lineTo(x + r * 0.82, y);
+    ctx.moveTo(x, y - r * 0.82);
+    ctx.lineTo(x, y + r * 0.82);
+    ctx.arc(x - r * 0.36, y, r * 0.73, -Math.PI / 2, Math.PI / 2);
     ctx.stroke();
     ctx.restore();
   }
@@ -3718,8 +3764,13 @@
     const b = PAUSE_BUTTON;
     drawPanel(b.x, b.y, b.w, b.h, "rgba(8,9,12,0.94)", "#747980");
     ctx.fillStyle = "#ffffff";
-    ctx.fillRect(b.x + 10, b.y + 9, 6, 18);
-    ctx.fillRect(b.x + 20, b.y + 9, 6, 18);
+    const barW = 5;
+    const barH = 16;
+    const gap = 5;
+    const startX = b.x + (b.w - barW * 2 - gap) / 2;
+    const startY = b.y + (b.h - barH) / 2;
+    ctx.fillRect(startX, startY, barW, barH);
+    ctx.fillRect(startX + barW + gap, startY, barW, barH);
   }
 
   function drawConfigButton() {
@@ -3732,13 +3783,13 @@
     for (let i = 0; i < 8; i += 1) {
       ctx.save();
       ctx.rotate((Math.PI / 4) * i);
-      ctx.fillRect(-1.5, -13, 3, 5);
+      ctx.fillRect(-1.5, -11, 3, 4);
       ctx.restore();
     }
     ctx.strokeStyle = "#ffffff";
     ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.arc(0, 0, 8, 0, Math.PI * 2);
+    ctx.arc(0, 0, 7, 0, Math.PI * 2);
     ctx.stroke();
     ctx.fillStyle = fill;
     ctx.beginPath();
@@ -3905,11 +3956,61 @@
 
   function drawControls() {
     if (state.paused || state.gameOver) return;
+    if (!useTouchControls()) {
+      drawDesktopControlsHint();
+      if (input.chargingShoot) drawShotMeter();
+      return;
+    }
     drawJoystick();
     for (const b of currentButtons()) {
       drawActionButton(b);
     }
     if (input.chargingShoot) drawShotMeter();
+  }
+
+  function drawDesktopControlsHint() {
+    const x = 24;
+    const y = H - 62;
+    const w = W - 48;
+    const h = 48;
+    ctx.save();
+    drawPanel(x, y, w, h, "rgba(5,12,21,0.84)", "#476c8d");
+    ctx.textBaseline = "middle";
+    drawDesktopHintText([
+      ["WASD", "move"],
+      ["LEFT CLICK", "pass/steal"],
+      ["SPACE", "shoot/block"],
+      ["P", "pause"],
+    ], W / 2, y + h / 2 + 1);
+    ctx.restore();
+  }
+
+  function drawDesktopHintText(items, centerX, centerY) {
+    const gap = 16;
+    const font = "14px 'arial', monospace";
+    const boldFont = "bold 12px 'arial, monospace";
+    let totalW = gap * (items.length - 1);
+    const widths = items.map(([key, action]) => {
+      ctx.font = boldFont;
+      const keyW = ctx.measureText(key).width;
+      ctx.font = font;
+      const actionW = ctx.measureText(` ${action}`).width;
+      totalW += keyW + actionW;
+      return { keyW, actionW };
+    });
+    let x = centerX - totalW / 2;
+    ctx.textAlign = "left";
+    for (let i = 0; i < items.length; i += 1) {
+      const [key, action] = items[i];
+      ctx.font = boldFont;
+      ctx.fillStyle = "#ffffff";
+      ctx.fillText(key, x, centerY);
+      x += widths[i].keyW;
+      ctx.font = font;
+      ctx.fillStyle = "#d8ecff";
+      ctx.fillText(` ${action}`, x, centerY);
+      x += widths[i].actionW + gap;
+    }
   }
 
   function drawJoystick() {
@@ -4280,6 +4381,10 @@
       restartGame();
       return;
     }
+    if (!useTouchControls()) {
+      if (event.button === 0) performAction(primaryDesktopAction(), true);
+      return;
+    }
     if (pointInCircle(pt, { ...JOYSTICK, r: JOYSTICK.r + 20 })) {
       input.joystickPointer = event.pointerId;
       updateJoystick(pt);
@@ -4443,7 +4548,7 @@
     if (event.code === "KeyR" && state.gameOver) restartGame();
     if (event.code === "KeyJ") performAction(state.possession === "blue" ? "PASS" : "BLOCK", true);
     if (event.code === "KeyK" || event.code === "KeyL") performAction(state.possession === "blue" ? "SHOOT" : "STEAL", true);
-    if (event.code === "Space") performAction(state.possession === "blue" ? "SHOOT" : "STEAL", true);
+    if (event.code === "Space") performAction(state.possession === "blue" ? "SHOOT" : "BLOCK", true);
   }
 
   function keyUp(event) {
