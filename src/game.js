@@ -53,13 +53,16 @@
     basketHit: "assets/generated/basket-hit.mp3",
     shoeSqueak: "assets/generated/shoe-squeak.mp3",
   };
+  const IS_MOBILE_DEVICE = isMobileDevice();
+  const IS_MOBILE_NARROW_VIEWPORT = IS_MOBILE_DEVICE && Math.min(window.innerWidth, window.innerHeight) <= 760;
   const MAX_AMBIENT_MUSIC_VOLUME = 0.03;
+  const MOBILE_MAX_AMBIENT_MUSIC_VOLUME = 0.5;
   const DEFAULT_AMBIENT_MUSIC_LEVEL = 0.5;
-  const SFX_AUDIO_POOL_SIZE = isMobileDevice() ? 1 : 2;
+  const SFX_AUDIO_POOL_SIZE = IS_MOBILE_DEVICE ? 1 : 2;
   const MOBILE_BALL_BOUNCE_POOL_SIZE = 2;
-  const MOBILE_DPR_CAP = 1;
+  const MOBILE_DPR_CAP = 0.85;
   const DESKTOP_DPR_CAP = 2;
-  const MOBILE_FRAME_MS = 1000 / 30;
+  const MOBILE_FRAME_MS = 1000 / 24;
   const SCORE_SOUND_START_SECONDS = 8;
   const SCORE_SOUND_PLAY_SECONDS = 4;
   const SCORE_SOUND_FADE_SECONDS = 0.5;
@@ -232,6 +235,7 @@
 
   /** @type {AssetManifest} */
   const assets = {};
+  const spriteFrameCache = new WeakMap();
   /** @type {InputState} */
   const input = {
     joystickPointer: null,
@@ -256,17 +260,16 @@
   let configScrollY = 0;
   let backgroundCacheCanvas = null;
   let startMenuCacheCanvas = null;
-  const useAmbientBufferAudio = isMobileDevice() &&
-    Math.min(window.innerWidth, window.innerHeight) <= 760 &&
-    Boolean(ambientAudioContextClass());
+  const mobileAudioProfile = IS_MOBILE_NARROW_VIEWPORT;
+  const useAmbientBufferAudio = false;
   const ambientMusicAudios = typeof Audio === "function" && !useAmbientBufferAudio
     ? AUDIO_PATHS.ambientSongs.map((path) => new Audio(path))
     : [];
   const scoreAudio = typeof Audio === "function" ? new Audio(AUDIO_PATHS.score) : null;
-  const ballBounceAudios = typeof Audio === "function" && !isMobileDevice()
+  const ballBounceAudios = typeof Audio === "function" && !IS_MOBILE_DEVICE
     ? Array.from({ length: SFX_AUDIO_POOL_SIZE }, () => new Audio(AUDIO_PATHS.bounce))
     : [];
-  const mobileBallBounceAudios = typeof Audio === "function" && isMobileDevice()
+  const mobileBallBounceAudios = typeof Audio === "function" && IS_MOBILE_DEVICE
     ? Array.from({ length: MOBILE_BALL_BOUNCE_POOL_SIZE }, () => new Audio(AUDIO_PATHS.bounce))
     : [];
   const ballLaunchAudios = typeof Audio === "function"
@@ -312,14 +315,15 @@
   let lastBallBounceSoundAt = -Infinity;
   for (const audio of ambientMusicAudios) {
     audio.loop = false;
-    audio.preload = "auto";
+    audio.preload = mobileAudioProfile ? "metadata" : "auto";
+    audio.playsInline = true;
     audio.volume = effectiveSongVolume();
     audio.addEventListener("ended", () => {
       if (audio !== ambientMusicAudio) return;
       ambientMusicAudio = null;
       syncAmbientMusic();
     });
-    audio.load();
+    if (!mobileAudioProfile) audio.load();
   }
   if (scoreAudio) {
     prepareAudioElement(scoreAudio, 0);
@@ -341,10 +345,10 @@
   }
 
   function prepareAudioElement(audio, volume, forceLoad = false) {
-    audio.preload = isMobileDevice() && !forceLoad ? "metadata" : "auto";
+    audio.preload = IS_MOBILE_DEVICE && !forceLoad ? "metadata" : "auto";
     audio.playsInline = true;
     audio.volume = volume;
-    if (!isMobileDevice() || forceLoad) audio.load();
+    if (!IS_MOBILE_DEVICE || forceLoad) audio.load();
   }
 
   function createImage(src) {
@@ -577,7 +581,8 @@
   }
 
   function effectiveSongVolume() {
-    return clamp(songVolume, 0, 1) * MAX_AMBIENT_MUSIC_VOLUME;
+    const maxVolume = mobileAudioProfile ? MOBILE_MAX_AMBIENT_MUSIC_VOLUME : MAX_AMBIENT_MUSIC_VOLUME;
+    return clamp(songVolume, 0, 1) * maxVolume;
   }
 
   function applyAmbientMusicVolume() {
@@ -591,7 +596,11 @@
   }
 
   function syncAmbientMusic() {
-    const canTryStartMenuAutoplay = !useAmbientBufferAudio && !gameStarted && !audioUnlocked && !ambientAutoplayAttempted;
+    const canTryStartMenuAutoplay = !mobileAudioProfile &&
+      !useAmbientBufferAudio &&
+      !gameStarted &&
+      !audioUnlocked &&
+      !ambientAutoplayAttempted;
     const shouldPlay = soundEnabled &&
       songEnabled &&
       songVolume > 0 &&
@@ -837,7 +846,7 @@
   }
 
   function warmMobileBallBounceAudio() {
-    if (!isMobileDevice() || mobileBallBounceWarmed || mobileBallBounceAudios.length === 0) return;
+    if (!IS_MOBILE_DEVICE || mobileBallBounceWarmed || mobileBallBounceAudios.length === 0) return;
     mobileBallBounceWarmed = true;
     for (const audio of mobileBallBounceAudios) {
       clearMobileBallBounceStopTimer(audio);
@@ -879,7 +888,7 @@
     if (now - lastBallBounceSoundAt < BALL_BOUNCE_MIN_INTERVAL_SECONDS * 1000) return;
     lastBallBounceSoundAt = now;
 
-    if (isMobileDevice() && playMobileBallBounceSound()) return;
+    if (IS_MOBILE_DEVICE && playMobileBallBounceSound()) return;
     if (ballBounceAudios.length === 0) return;
     const audio = ballBounceAudios[ballBounceAudioIndex % ballBounceAudios.length];
     ballBounceAudioIndex += 1;
@@ -1000,7 +1009,7 @@
   }
 
   function resizeCanvas() {
-    const dprCap = isMobileDevice() ? MOBILE_DPR_CAP : DESKTOP_DPR_CAP;
+    const dprCap = IS_MOBILE_DEVICE ? MOBILE_DPR_CAP : DESKTOP_DPR_CAP;
     const dpr = Math.min(window.devicePixelRatio || 1, dprCap);
     canvas.width = Math.floor(W * dpr);
     canvas.height = Math.floor(H * dpr);
@@ -1859,7 +1868,7 @@
 
   function useTouchControls() {
     const narrowViewport = Math.min(window.innerWidth, window.innerHeight) <= 760;
-    return isMobileDevice() && narrowViewport;
+    return IS_MOBILE_DEVICE && narrowViewport;
   }
 
   function primaryDesktopAction() {
@@ -3295,6 +3304,13 @@
   function buildStaticCanvasCaches() {
     backgroundCacheCanvas = renderToStaticCanvas(drawBackgroundToContext);
     startMenuCacheCanvas = renderToStaticCanvas(drawStartMenuBackgroundToContext);
+    releaseMobileStaticSourceImages();
+  }
+
+  function releaseMobileStaticSourceImages() {
+    if (!mobileAudioProfile) return;
+    if (backgroundCacheCanvas) delete assets.court;
+    if (startMenuCacheCanvas) delete assets.startMenu;
   }
 
   function renderToStaticCanvas(drawFn) {
@@ -3486,6 +3502,46 @@
     ctx.restore();
   }
 
+  function spriteFrameCanvas(img, columns, rows, frameIndex, dw, dh) {
+    if (!IS_MOBILE_DEVICE || !img || !img.naturalWidth || !img.naturalHeight) return null;
+    let imageCache = spriteFrameCache.get(img);
+    if (!imageCache) {
+      imageCache = new Map();
+      spriteFrameCache.set(img, imageCache);
+    }
+    const width = Math.max(1, Math.round(dw));
+    const height = Math.max(1, Math.round(dh));
+    const key = `${columns}:${rows}:${frameIndex}:${width}:${height}`;
+    const cached = imageCache.get(key);
+    if (cached) return cached;
+    const buffer = document.createElement("canvas");
+    buffer.width = width;
+    buffer.height = height;
+    const bufferCtx = buffer.getContext("2d");
+    if (!bufferCtx) return null;
+    bufferCtx.imageSmoothingEnabled = false;
+    const cw = img.naturalWidth / columns;
+    const ch = img.naturalHeight / rows;
+    const sx = (frameIndex % columns) * cw;
+    const sy = Math.floor(frameIndex / columns) * ch;
+    bufferCtx.drawImage(img, sx, sy, cw, ch, 0, 0, width, height);
+    imageCache.set(key, buffer);
+    return buffer;
+  }
+
+  function drawSpriteFrame(img, columns, rows, frameIndex, dx, dy, dw, dh) {
+    const cached = spriteFrameCanvas(img, columns, rows, frameIndex, dw, dh);
+    if (cached) {
+      ctx.drawImage(cached, dx, dy);
+      return;
+    }
+    const cw = img.naturalWidth / columns;
+    const ch = img.naturalHeight / rows;
+    const sx = (frameIndex % columns) * cw;
+    const sy = Math.floor(frameIndex / columns) * ch;
+    ctx.drawImage(img, sx, sy, cw, ch, dx, dy, dw, dh);
+  }
+
   function drawPlayer(p) {
     const img = p.team === "blue" ? assets.blue : assets.red;
     const frame = frameForPlayer(p);
@@ -3558,135 +3614,67 @@
     } else if (redPassImg && redPassImg.complete && redPassImg.naturalWidth) {
       drawPassingSprite(redPassImg, redPassFrameIndex, p, visualY, passDirectionX());
     } else if (blueIdleImg && blueIdleImg.complete && blueIdleImg.naturalWidth) {
-      const cw = blueIdleImg.naturalWidth / 4;
-      const ch = blueIdleImg.naturalHeight / 4;
-      const sx = (blueIdleFrameIndex % 4) * cw;
-      const sy = Math.floor(blueIdleFrameIndex / 4) * ch;
       ctx.save();
       ctx.translate(p.x, 0);
       if (p.facingX < 0) ctx.scale(-1, 1);
-      ctx.drawImage(blueIdleImg, sx, sy, cw, ch, -38, visualY - 80, 76, 80);
+      drawSpriteFrame(blueIdleImg, 4, 4, blueIdleFrameIndex, -38, visualY - 80, 76, 80);
       ctx.restore();
     } else if (blueIdleBallImg && blueIdleBallImg.complete && blueIdleBallImg.naturalWidth) {
-      const cw = blueIdleBallImg.naturalWidth / 4;
-      const ch = blueIdleBallImg.naturalHeight / 4;
-      const sx = (blueIdleBallFrame % 4) * cw;
-      const sy = Math.floor(blueIdleBallFrame / 4) * ch;
       ctx.save();
       ctx.translate(p.x, 0);
       if (p.facingX < 0) ctx.scale(-1, 1);
-      ctx.drawImage(blueIdleBallImg, sx, sy, cw, ch, -38, visualY - 80, 76, 80);
+      drawSpriteFrame(blueIdleBallImg, 4, 4, blueIdleBallFrame, -38, visualY - 80, 76, 80);
       ctx.restore();
     } else if (blueUpBallImg && blueUpBallImg.complete && blueUpBallImg.naturalWidth) {
-      const cw = blueUpBallImg.naturalWidth / 4;
-      const ch = blueUpBallImg.naturalHeight / 4;
-      const sx = (blueUpBallFrame % 4) * cw;
-      const sy = Math.floor(blueUpBallFrame / 4) * ch;
-      ctx.drawImage(blueUpBallImg, sx, sy, cw, ch, p.x - 38, visualY - 80, 76, 80);
+      drawSpriteFrame(blueUpBallImg, 4, 4, blueUpBallFrame, p.x - 38, visualY - 80, 76, 80);
     } else if (blueDownBallImg && blueDownBallImg.complete && blueDownBallImg.naturalWidth) {
-      const cw = blueDownBallImg.naturalWidth / 4;
-      const ch = blueDownBallImg.naturalHeight / 4;
-      const sx = (blueDownBallFrame % 4) * cw;
-      const sy = Math.floor(blueDownBallFrame / 4) * ch;
-      ctx.drawImage(blueDownBallImg, sx, sy, cw, ch, p.x - 38, visualY - 80, 76, 80);
+      drawSpriteFrame(blueDownBallImg, 4, 4, blueDownBallFrame, p.x - 38, visualY - 80, 76, 80);
     } else if (blueUpImg && blueUpImg.complete && blueUpImg.naturalWidth) {
-      const cw = blueUpImg.naturalWidth / 4;
-      const ch = blueUpImg.naturalHeight / 4;
-      const sx = (blueUpFrame % 4) * cw;
-      const sy = Math.floor(blueUpFrame / 4) * ch;
-      ctx.drawImage(blueUpImg, sx, sy, cw, ch, p.x - 38, visualY - 80, 76, 80);
+      drawSpriteFrame(blueUpImg, 4, 4, blueUpFrame, p.x - 38, visualY - 80, 76, 80);
     } else if (blueDownImg && blueDownImg.complete && blueDownImg.naturalWidth) {
-      const cw = blueDownImg.naturalWidth / 4;
-      const ch = blueDownImg.naturalHeight / 4;
-      const sx = (blueDownFrame % 4) * cw;
-      const sy = Math.floor(blueDownFrame / 4) * ch;
-      ctx.drawImage(blueDownImg, sx, sy, cw, ch, p.x - 38, visualY - 80, 76, 80);
+      drawSpriteFrame(blueDownImg, 4, 4, blueDownFrame, p.x - 38, visualY - 80, 76, 80);
     } else if (blueSideBallImg && blueSideBallImg.complete && blueSideBallImg.naturalWidth) {
-      const cw = blueSideBallImg.naturalWidth / 4;
-      const ch = blueSideBallImg.naturalHeight / 4;
-      const sx = (blueSideBallFrame % 4) * cw;
-      const sy = Math.floor(blueSideBallFrame / 4) * ch;
       ctx.save();
       ctx.translate(p.x, 0);
       if (p.facingX < 0) ctx.scale(-1, 1);
-      ctx.drawImage(blueSideBallImg, sx, sy, cw, ch, -38, visualY - 80, 76, 80);
+      drawSpriteFrame(blueSideBallImg, 4, 4, blueSideBallFrame, -38, visualY - 80, 76, 80);
       ctx.restore();
     } else if (blueSideImg && blueSideImg.complete && blueSideImg.naturalWidth) {
-      const cw = blueSideImg.naturalWidth / 4;
-      const ch = blueSideImg.naturalHeight / 4;
-      const sx = (blueSideFrame % 4) * cw;
-      const sy = Math.floor(blueSideFrame / 4) * ch;
       ctx.save();
       ctx.translate(p.x, 0);
       if (p.facingX < 0) ctx.scale(-1, 1);
-      ctx.drawImage(blueSideImg, sx, sy, cw, ch, -38, visualY - 80, 76, 80);
+      drawSpriteFrame(blueSideImg, 4, 4, blueSideFrame, -38, visualY - 80, 76, 80);
       ctx.restore();
     } else if (redUpBallImg && redUpBallImg.complete && redUpBallImg.naturalWidth) {
-      const cw = redUpBallImg.naturalWidth / 4;
-      const ch = redUpBallImg.naturalHeight / 4;
-      const sx = (redUpBallFrame % 4) * cw;
-      const sy = Math.floor(redUpBallFrame / 4) * ch;
-      ctx.drawImage(redUpBallImg, sx, sy, cw, ch, p.x - 38, visualY - 80, 76, 80);
+      drawSpriteFrame(redUpBallImg, 4, 4, redUpBallFrame, p.x - 38, visualY - 80, 76, 80);
     } else if (redUpImg && redUpImg.complete && redUpImg.naturalWidth) {
-      const cw = redUpImg.naturalWidth / 4;
-      const ch = redUpImg.naturalHeight / 4;
-      const sx = (redUpFrame % 4) * cw;
-      const sy = Math.floor(redUpFrame / 4) * ch;
-      ctx.drawImage(redUpImg, sx, sy, cw, ch, p.x - 38, visualY - 80, 76, 80);
+      drawSpriteFrame(redUpImg, 4, 4, redUpFrame, p.x - 38, visualY - 80, 76, 80);
     } else if (redDownBallImg && redDownBallImg.complete && redDownBallImg.naturalWidth) {
-      const cw = redDownBallImg.naturalWidth / 4;
-      const ch = redDownBallImg.naturalHeight / 4;
-      const sx = (redDownBallFrame % 4) * cw;
-      const sy = Math.floor(redDownBallFrame / 4) * ch;
-      ctx.drawImage(redDownBallImg, sx, sy, cw, ch, p.x - 38, visualY - 80, 76, 80);
+      drawSpriteFrame(redDownBallImg, 4, 4, redDownBallFrame, p.x - 38, visualY - 80, 76, 80);
     } else if (redDownImg && redDownImg.complete && redDownImg.naturalWidth) {
-      const cw = redDownImg.naturalWidth / 4;
-      const ch = redDownImg.naturalHeight / 4;
-      const sx = (redDownFrame % 4) * cw;
-      const sy = Math.floor(redDownFrame / 4) * ch;
-      ctx.drawImage(redDownImg, sx, sy, cw, ch, p.x - 38, visualY - 80, 76, 80);
+      drawSpriteFrame(redDownImg, 4, 4, redDownFrame, p.x - 38, visualY - 80, 76, 80);
     } else if (redSideBallImg && redSideBallImg.complete && redSideBallImg.naturalWidth) {
-      const cw = redSideBallImg.naturalWidth / 4;
-      const ch = redSideBallImg.naturalHeight / 4;
-      const sx = (redSideBallFrame % 4) * cw;
-      const sy = Math.floor(redSideBallFrame / 4) * ch;
       ctx.save();
       ctx.translate(p.x, 0);
       if (p.facingX < 0) ctx.scale(-1, 1);
-      ctx.drawImage(redSideBallImg, sx, sy, cw, ch, -42, visualY - 80, 84, 80);
+      drawSpriteFrame(redSideBallImg, 4, 4, redSideBallFrame, -42, visualY - 80, 84, 80);
       ctx.restore();
     } else if (runImg && runImg.complete && runImg.naturalWidth) {
-      const cw = runImg.naturalWidth / 4;
-      const ch = runImg.naturalHeight / 4;
-      const sx = (runFrame % 4) * cw;
-      const sy = Math.floor(runFrame / 4) * ch;
       ctx.save();
       ctx.translate(p.x, 0);
       if (p.facingX < 0) ctx.scale(-1, 1);
-      ctx.drawImage(runImg, sx, sy, cw, ch, -37, visualY - 68, 74, 78);
+      drawSpriteFrame(runImg, 4, 4, runFrame, -37, visualY - 68, 74, 78);
       ctx.restore();
     } else if (redIdleBallImg && redIdleBallImg.complete && redIdleBallImg.naturalWidth) {
-      const cw = redIdleBallImg.naturalWidth / 4;
-      const ch = redIdleBallImg.naturalHeight / 4;
-      const sx = (redIdleBallFrame % 4) * cw;
-      const sy = Math.floor(redIdleBallFrame / 4) * ch;
       ctx.save();
       ctx.translate(p.x, 0);
       if (p.facingX < 0) ctx.scale(-1, 1);
-      ctx.drawImage(redIdleBallImg, sx, sy, cw, ch, -38, visualY - 80, 76, 80);
+      drawSpriteFrame(redIdleBallImg, 4, 4, redIdleBallFrame, -38, visualY - 80, 76, 80);
       ctx.restore();
     } else if (idleImg && idleImg.complete && idleImg.naturalWidth) {
-      const cw = idleImg.naturalWidth / 4;
-      const ch = idleImg.naturalHeight / 4;
-      const sx = (idleFrame % 4) * cw;
-      const sy = Math.floor(idleFrame / 4) * ch;
-      ctx.drawImage(idleImg, sx, sy, cw, ch, p.x - 37, visualY - 64, 74, 74);
+      drawSpriteFrame(idleImg, 4, 4, idleFrame, p.x - 37, visualY - 64, 74, 74);
     } else if (img && img.complete && img.naturalWidth) {
-      const cw = img.naturalWidth / 4;
-      const ch = img.naturalHeight / 2;
-      const sx = (frame % 4) * cw;
-      const sy = Math.floor(frame / 4) * ch;
-      ctx.drawImage(img, sx, sy, cw, ch, p.x - 34, visualY - 82, 68, 92);
+      drawSpriteFrame(img, 4, 2, frame, p.x - 34, visualY - 82, 68, 92);
     } else {
       ctx.fillStyle = p.team === "blue" ? "#116de5" : "#cf2727";
       ctx.fillRect(p.x - 14, visualY - 48, 28, 48);
@@ -3695,62 +3683,42 @@
   }
 
   function drawPassingSprite(img, frameIndex, player, visualY, directionX) {
-    const cw = img.naturalWidth / 4;
-    const ch = img.naturalHeight / 4;
-    const sx = (frameIndex % 4) * cw;
-    const sy = Math.floor(frameIndex / 4) * ch;
     const mirrored = directionX < 0;
     ctx.save();
     ctx.translate(player.x, 0);
     if (mirrored) ctx.scale(-1, 1);
-    ctx.drawImage(img, sx, sy, cw, ch, -38, visualY - 80, 112, 80);
+    drawSpriteFrame(img, 4, 4, frameIndex, -38, visualY - 80, 112, 80);
     ctx.restore();
   }
 
   function drawPassingUpSprite(img, frameIndex, player, visualY) {
-    const cw = img.naturalWidth / 4;
-    const ch = img.naturalHeight / 4;
-    const sx = (frameIndex % 4) * cw;
-    const sy = Math.floor(frameIndex / 4) * ch;
-    ctx.drawImage(img, sx, sy, cw, ch, player.x - 69, visualY - 101, 128, 128);
+    drawSpriteFrame(img, 4, 4, frameIndex, player.x - 69, visualY - 101, 128, 128);
   }
 
   function drawPassingUpRightSprite(img, frameIndex, player, visualY, directionX) {
-    const cw = img.naturalWidth / 4;
-    const ch = img.naturalHeight / 4;
-    const sx = (frameIndex % 4) * cw;
-    const sy = Math.floor(frameIndex / 4) * ch;
     const mirrored = directionX < 0;
     ctx.save();
     ctx.translate(player.x, 0);
     if (mirrored) ctx.scale(-1, 1);
-    ctx.drawImage(img, sx, sy, cw, ch, -69, visualY - 101, 128, 128);
+    drawSpriteFrame(img, 4, 4, frameIndex, -69, visualY - 101, 128, 128);
     ctx.restore();
   }
 
   function drawShootingSprite(img, frameIndex, player, visualY) {
-    const cw = img.naturalWidth / 4;
-    const ch = img.naturalHeight / 4;
-    const sx = (frameIndex % 4) * cw;
-    const sy = Math.floor(frameIndex / 4) * ch;
     const mirrored = isRightSideOfCourt(player);
     ctx.save();
     ctx.translate(player.x, 0);
     if (mirrored) ctx.scale(-1, 1);
-    ctx.drawImage(img, sx, sy, cw, ch, mirrored ? -59 : -37, visualY - 102, 96, 112);
+    drawSpriteFrame(img, 4, 4, frameIndex, mirrored ? -59 : -37, visualY - 102, 96, 112);
     ctx.restore();
   }
 
   function drawBlockingSprite(img, frameIndex, player, visualY) {
-    const cw = img.naturalWidth / 4;
-    const ch = img.naturalHeight / 4;
-    const sx = (frameIndex % 4) * cw;
-    const sy = Math.floor(frameIndex / 4) * ch;
     const mirrored = player.blockFacingX < 0;
     ctx.save();
     ctx.translate(player.x, 0);
     if (mirrored) ctx.scale(-1, 1);
-    ctx.drawImage(img, sx, sy, cw, ch, -64, visualY - 110, 128, 128);
+    drawSpriteFrame(img, 4, 4, frameIndex, -64, visualY - 110, 128, 128);
     ctx.restore();
   }
 
@@ -4972,14 +4940,14 @@
   }
 
   function loop(now) {
-    if (isMobileDevice() && now - lastMobileFrameAt < MOBILE_FRAME_MS) {
+    if (IS_MOBILE_DEVICE && now - lastMobileFrameAt < MOBILE_FRAME_MS) {
       requestAnimationFrame(loop);
       return;
     }
-    if (isMobileDevice()) {
+    if (IS_MOBILE_DEVICE) {
       lastMobileFrameAt = now;
     }
-    const maxDt = isMobileDevice() ? 0.045 : 0.08;
+    const maxDt = IS_MOBILE_DEVICE ? 0.045 : 0.08;
     const dt = Math.min((now - lastTime) / 1000, maxDt);
     lastTime = now;
     update(dt);
