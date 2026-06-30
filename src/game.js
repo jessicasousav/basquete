@@ -63,6 +63,7 @@
   const MOBILE_DPR_CAP = 0.85;
   const DESKTOP_DPR_CAP = 2;
   const MOBILE_FRAME_MS = 1000 / 24;
+  const MOBILE_ANIMATION_SPEED_MULTIPLIER = 1.8;
   const SCORE_SOUND_START_SECONDS = 8;
   const SCORE_SOUND_PLAY_SECONDS = 4;
   const SCORE_SOUND_FADE_SECONDS = 0.5;
@@ -3743,14 +3744,23 @@
     ctx.restore();
   }
 
+  function animationTime(value) {
+    return value * (IS_MOBILE_DEVICE ? MOBILE_ANIMATION_SPEED_MULTIPLIER : 1);
+  }
+
+  function animationFrameT(player) {
+    return animationTime(player.frameT);
+  }
+
   function frameForPlayer(p) {
     const speed = Math.hypot(p.vx, p.vy);
+    const frameT = animationFrameT(p);
     if (state.ball.mode === "shot" && state.ball.shooterId === p.id) return 6;
     if (isJumpCharging(p) || p.jumpOffset > 8) return 6;
-    if (state.ball.holderId === p.id && speed > 12) return p.frameT % 0.28 < 0.14 ? 4 : 5;
+    if (state.ball.holderId === p.id && speed > 12) return frameT % 0.28 < 0.14 ? 4 : 5;
     if (state.ball.holderId === p.id) return 0;
     if (p.team !== state.possession) return 7;
-    if (speed > 16) return p.frameT % 0.28 < 0.14 ? 4 : 5;
+    if (speed > 16) return frameT % 0.28 < 0.14 ? 4 : 5;
     return p.vy < -8 ? 1 : 0;
   }
 
@@ -3758,28 +3768,28 @@
     if (p.team !== "blue") return -1;
     const shooting = state.ball.mode === "shot" && state.ball.shooterId === p.id;
     if (p.animDirection !== "up" || shooting || p.jumpOffset > 8) return -1;
-    return Math.floor(p.frameT / 0.06) % 16;
+    return Math.floor(animationFrameT(p) / 0.06) % 16;
   }
 
   function blueRunUpBallFrame(p) {
     if (p.team !== "blue") return -1;
     const hasBall = state.ball.mode === "held" && state.ball.holderId === p.id;
     if (!hasBall || p.animDirection !== "up" || isJumpCharging(p) || p.jumpOffset > 8) return -1;
-    return Math.floor(p.frameT / 0.06) % 16;
+    return Math.floor(animationFrameT(p) / 0.06) % 16;
   }
 
   function blueRunDownBallFrame(p) {
     if (p.team !== "blue") return -1;
     const hasBall = state.ball.mode === "held" && state.ball.holderId === p.id;
     if (!hasBall || p.animDirection !== "down" || isJumpCharging(p) || p.jumpOffset > 8) return -1;
-    return Math.floor(p.frameT / 0.06) % 16;
+    return Math.floor(animationFrameT(p) / 0.06) % 16;
   }
 
   function blueRunSideBallFrame(p) {
     if (p.team !== "blue") return -1;
     const hasBall = state.ball.mode === "held" && state.ball.holderId === p.id;
     if (!hasBall || p.animDirection !== "side" || isJumpCharging(p) || p.jumpOffset > 8) return -1;
-    return Math.floor(p.frameT / 0.055) % 16;
+    return Math.floor(animationFrameT(p) / 0.055) % 16;
   }
 
   function blueIdleFrame(p) {
@@ -3788,14 +3798,14 @@
     const afterShot = state.ball.mode === "shot" && state.ball.shooterId === p.id;
     if (hasBall || isJumpCharging(p)) return -1;
     if (!afterShot && (p.animDirection !== "idle" || p.jumpOffset > 8)) return -1;
-    return Math.floor(p.frameT / 0.09) % 16;
+    return Math.floor(animationFrameT(p) / 0.09) % 16;
   }
 
   function blueIdleBallFrameForPlayer(p) {
     if (p.team !== "blue") return -1;
     const hasBall = state.ball.mode === "held" && state.ball.holderId === p.id;
     if (!hasBall || p.animDirection !== "idle" || isJumpCharging(p) || p.jumpOffset > 8) return -1;
-    return Math.floor(p.frameT / BLUE_IDLE_BALL_FRAME_SECONDS) % 16;
+    return Math.floor(animationFrameT(p) / BLUE_IDLE_BALL_FRAME_SECONDS) % 16;
   }
 
   function blueHeldBallSpriteOwnsBall() {
@@ -3815,8 +3825,9 @@
     if (state.ball.mode !== "pass" || state.ball.assistFrom !== p.id) return -1;
     if (isPassToUpCourt()) return -1;
     const duration = Math.max(0.08, Math.min(BLUE_PASS_ANIMATION_MAX, state.ball.duration));
-    if (state.ball.time >= duration) return -1;
-    return Math.min(15, Math.floor((state.ball.time / duration) * 16));
+    const visualTime = animationTime(state.ball.time);
+    if (visualTime >= duration) return -1;
+    return Math.min(15, Math.floor((visualTime / duration) * 16));
   }
 
   function bluePassUpFrame(p) {
@@ -3825,8 +3836,9 @@
     if (!isPassToUpCourt()) return -1;
     if (isPassToUpSideCourt()) return -1;
     const duration = Math.max(0.08, Math.min(BLUE_PASS_UP_ANIMATION_SECONDS, state.ball.duration));
-    if (state.ball.time >= duration) return -1;
-    return Math.min(15, Math.floor((state.ball.time / duration) * 16));
+    const visualTime = animationTime(state.ball.time);
+    if (visualTime >= duration) return -1;
+    return Math.min(15, Math.floor((visualTime / duration) * 16));
   }
 
   function bluePassUpRightFrame(p) {
@@ -3834,8 +3846,9 @@
     if (state.ball.mode !== "pass" || state.ball.assistFrom !== p.id) return -1;
     if (!isPassToUpSideCourt()) return -1;
     const duration = Math.max(0.08, Math.min(BLUE_PASS_UP_ANIMATION_SECONDS, state.ball.duration));
-    if (state.ball.time >= duration) return -1;
-    return Math.min(15, Math.floor((state.ball.time / duration) * 16));
+    const visualTime = animationTime(state.ball.time);
+    if (visualTime >= duration) return -1;
+    return Math.min(15, Math.floor((visualTime / duration) * 16));
   }
 
   function isPassToUpCourt() {
@@ -3854,26 +3867,29 @@
     if (p.team !== "red") return -1;
     if (state.ball.mode !== "pass" || state.ball.assistFrom !== p.id) return -1;
     const duration = Math.max(0.08, Math.min(RED_PASS_ANIMATION_MAX, state.ball.duration));
-    if (state.ball.time >= duration) return -1;
-    return Math.min(15, Math.floor((state.ball.time / duration) * 16));
+    const visualTime = animationTime(state.ball.time);
+    if (visualTime >= duration) return -1;
+    return Math.min(15, Math.floor((visualTime / duration) * 16));
   }
 
   function blueShootFrame(p) {
     if (p.team !== "blue") return -1;
     if (isJumpCharging(p)) {
-      const charge = clamp(shootChargeProgress(), 0, 1);
+      const charge = clamp(animationTime(shootChargeProgress()), 0, 1);
       return Math.min(BLUE_SHOT_RELEASE_FRAME - 1, Math.floor(charge * BLUE_SHOT_RELEASE_FRAME));
     }
     if (state.ball.mode !== "shot" || state.ball.shooterId !== p.id) return -1;
     const duration = Math.max(0.12, Math.min(BLUE_SHOT_ANIMATION_MAX, state.ball.duration));
-    if (state.ball.time >= duration) return -1;
+    const visualTime = animationTime(state.ball.time);
+    if (visualTime >= duration) return -1;
     const followThroughFrames = 16 - BLUE_SHOT_RELEASE_FRAME;
-    return Math.min(15, BLUE_SHOT_RELEASE_FRAME + Math.floor((state.ball.time / duration) * followThroughFrames));
+    return Math.min(15, BLUE_SHOT_RELEASE_FRAME + Math.floor((visualTime / duration) * followThroughFrames));
   }
 
   function blueBlockFrame(p) {
     if (p.team !== "blue" || p.blockAnimT <= 0) return -1;
-    const elapsed = BLUE_BLOCK_ANIMATION_SECONDS - p.blockAnimT;
+    const elapsed = animationTime(BLUE_BLOCK_ANIMATION_SECONDS - p.blockAnimT);
+    if (elapsed >= BLUE_BLOCK_ANIMATION_SECONDS) return -1;
     return Math.min(15, Math.floor((elapsed / BLUE_BLOCK_ANIMATION_SECONDS) * 16));
   }
 
@@ -3892,8 +3908,9 @@
   function redShootFrame(p) {
     if (p.team !== "red" || state.ball.mode !== "shot" || state.ball.shooterId !== p.id) return -1;
     const duration = Math.max(0.12, Math.min(RED_SHOT_ANIMATION_MAX, state.ball.duration));
-    if (state.ball.time >= duration) return -1;
-    return Math.min(15, Math.floor((state.ball.time / duration) * 16));
+    const visualTime = animationTime(state.ball.time);
+    if (visualTime >= duration) return -1;
+    return Math.min(15, Math.floor((visualTime / duration) * 16));
   }
 
   function redShotSpriteOwnsBall() {
@@ -3907,28 +3924,28 @@
     if (p.team !== "blue") return -1;
     const shooting = state.ball.mode === "shot" && state.ball.shooterId === p.id;
     if (p.animDirection !== "down" || shooting || p.jumpOffset > 8) return -1;
-    return Math.floor(p.frameT / 0.06) % 16;
+    return Math.floor(animationFrameT(p) / 0.06) % 16;
   }
 
   function blueRunSideFrame(p) {
     if (p.team !== "blue") return -1;
     const shooting = state.ball.mode === "shot" && state.ball.shooterId === p.id;
     if (p.animDirection !== "side" || shooting || p.jumpOffset > 8) return -1;
-    return Math.floor(p.frameT / 0.055) % 16;
+    return Math.floor(animationFrameT(p) / 0.055) % 16;
   }
 
   function redRunUpFrame(p) {
     if (p.team !== "red") return -1;
     const shooting = state.ball.mode === "shot" && state.ball.shooterId === p.id;
     if (p.animDirection !== "up" || shooting || p.jumpOffset > 8) return -1;
-    return Math.floor(p.frameT / 0.06) % 16;
+    return Math.floor(animationFrameT(p) / 0.06) % 16;
   }
 
   function redRunUpBallFrame(p) {
     if (p.team !== "red") return -1;
     const hasBall = state.ball.mode === "held" && state.ball.holderId === p.id;
     if (!hasBall || p.animDirection !== "up" || p.jumpOffset > 8) return -1;
-    return Math.floor(p.frameT / 0.06) % 16;
+    return Math.floor(animationFrameT(p) / 0.06) % 16;
   }
 
   function redHeldBallSpriteOwnsBall() {
@@ -3947,42 +3964,42 @@
     if (p.team !== "red") return -1;
     const shooting = state.ball.mode === "shot" && state.ball.shooterId === p.id;
     if (p.animDirection !== "down" || shooting || p.jumpOffset > 8) return -1;
-    return Math.floor(p.frameT / 0.06) % 16;
+    return Math.floor(animationFrameT(p) / 0.06) % 16;
   }
 
   function redRunDownBallFrame(p) {
     if (p.team !== "red") return -1;
     const hasBall = state.ball.mode === "held" && state.ball.holderId === p.id;
     if (!hasBall || p.animDirection !== "down" || p.jumpOffset > 8) return -1;
-    return Math.floor(p.frameT / 0.06) % 16;
+    return Math.floor(animationFrameT(p) / 0.06) % 16;
   }
 
   function redRunSideBallFrame(p) {
     if (p.team !== "red") return -1;
     const hasBall = state.ball.mode === "held" && state.ball.holderId === p.id;
     if (!hasBall || p.animDirection !== "side" || p.jumpOffset > 8) return -1;
-    return Math.floor(p.frameT / 0.055) % 16;
+    return Math.floor(animationFrameT(p) / 0.055) % 16;
   }
 
   function redRunFrame(p) {
     if (p.team !== "red") return -1;
     const shooting = state.ball.mode === "shot" && state.ball.shooterId === p.id;
     if (p.animDirection !== "side" || shooting || p.jumpOffset > 8) return -1;
-    return Math.floor(p.frameT / 0.055) % 16;
+    return Math.floor(animationFrameT(p) / 0.055) % 16;
   }
 
   function redIdleFrame(p) {
     if (p.team !== "red") return -1;
     const shooting = state.ball.mode === "shot" && state.ball.shooterId === p.id;
     if (p.animDirection !== "idle" || shooting || p.jumpOffset > 8) return -1;
-    return Math.floor(p.frameT / 0.09) % 16;
+    return Math.floor(animationFrameT(p) / 0.09) % 16;
   }
 
   function redIdleBallFrameForPlayer(p) {
     if (p.team !== "red") return -1;
     const hasBall = state.ball.mode === "held" && state.ball.holderId === p.id;
     if (!hasBall || p.animDirection !== "idle" || p.jumpOffset > 8) return -1;
-    return Math.floor(p.frameT / 0.09) % 16;
+    return Math.floor(animationFrameT(p) / 0.09) % 16;
   }
 
   function drawBall() {
