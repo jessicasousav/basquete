@@ -55,7 +55,10 @@
   };
   const MAX_AMBIENT_MUSIC_VOLUME = 0.03;
   const DEFAULT_AMBIENT_MUSIC_LEVEL = 0.5;
-  const SFX_AUDIO_POOL_SIZE = 2;
+  const SFX_AUDIO_POOL_SIZE = isMobileDevice() ? 1 : 2;
+  const MOBILE_DPR_CAP = 1;
+  const DESKTOP_DPR_CAP = 2;
+  const MOBILE_FRAME_MS = 1000 / 45;
   const SCORE_SOUND_START_SECONDS = 8;
   const SCORE_SOUND_PLAY_SECONDS = 4;
   const SCORE_SOUND_FADE_SECONDS = 0.5;
@@ -248,7 +251,10 @@
   let gameStarted = false;
   let ambientAutoplayAttempted = false;
   let lastTime = performance.now();
+  let lastMobileFrameAt = 0;
   let configScrollY = 0;
+  let backgroundCacheCanvas = null;
+  let startMenuCacheCanvas = null;
   const ambientMusicAudios = typeof Audio === "function"
     ? AUDIO_PATHS.ambientSongs.map((path) => new Audio(path))
     : [];
@@ -274,6 +280,9 @@
   let songVolume = songEnabled ? loadSongVolume() : 0;
   let ambientMusicAudio = null;
   let ambientMusicIndex = -1;
+  let ambientAudioContext = null;
+  let ambientGainNode = null;
+  const ambientSourceNodes = new WeakMap();
   let scoreSoundStopTimer = null;
   let scoreSoundFadeFrame = null;
   let scoreSoundStartedAt = 0;
@@ -336,12 +345,50 @@
     for (const [key, image] of entries) {
       assets[key] = image;
     }
+    buildStaticCanvasCaches();
     loaded = true;
+    syncAmbientMusic();
   }
 
   function unlockGameAudio() {
     audioUnlocked = true;
+    ensureAmbientAudioGraph();
+    resumeAmbientAudioContext();
     syncAmbientMusic();
+  }
+
+  function ambientAudioContextClass() {
+    return window.AudioContext || window.webkitAudioContext || null;
+  }
+
+  function ensureAmbientAudioGraph() {
+    const AudioContextClass = ambientAudioContextClass();
+    if (!AudioContextClass || !ambientMusicAudios.length) return false;
+    if (!ambientAudioContext) {
+      ambientAudioContext = new AudioContextClass();
+      ambientGainNode = ambientAudioContext.createGain();
+      ambientGainNode.connect(ambientAudioContext.destination);
+    }
+    for (const audio of ambientMusicAudios) {
+      if (ambientSourceNodes.has(audio)) continue;
+      try {
+        const source = ambientAudioContext.createMediaElementSource(audio);
+        source.connect(ambientGainNode);
+        ambientSourceNodes.set(audio, source);
+      } catch {
+        // If a browser has already bound this media element, keep the fallback volume path alive.
+      }
+    }
+    applyAmbientMusicVolume();
+    return true;
+  }
+
+  function resumeAmbientAudioContext() {
+    if (!ambientAudioContext || ambientAudioContext.state !== "suspended") return;
+    const resumePromise = ambientAudioContext.resume();
+    if (resumePromise && typeof resumePromise.then === "function") {
+      resumePromise.then(syncAmbientMusic).catch(() => {});
+    }
   }
 
   function selectNextAmbientSong() {
@@ -372,8 +419,11 @@
 
   function applyAmbientMusicVolume() {
     const volume = effectiveSongVolume();
+    if (ambientGainNode) {
+      ambientGainNode.gain.value = volume;
+    }
     for (const audio of ambientMusicAudios) {
-      audio.volume = volume;
+      audio.volume = ambientSourceNodes.has(audio) ? 1 : volume;
     }
   }
 
@@ -383,7 +433,6 @@
       songEnabled &&
       songVolume > 0 &&
       (audioUnlocked || canTryStartMenuAutoplay) &&
-      !state.paused &&
       !state.gameOver &&
       !document.hidden;
     if (!shouldPlay) {
@@ -393,10 +442,14 @@
     if (canTryStartMenuAutoplay) {
       ambientAutoplayAttempted = true;
     }
+    if (audioUnlocked) {
+      ensureAmbientAudioGraph();
+      resumeAmbientAudioContext();
+    }
     const audio = ambientMusicAudio || selectNextAmbientSong();
     if (!audio) return;
     ambientMusicAudio = audio;
-    ambientMusicAudio.volume = effectiveSongVolume();
+    ambientMusicAudio.volume = ambientSourceNodes.has(ambientMusicAudio) ? 1 : effectiveSongVolume();
     if (!ambientMusicAudio.paused) return;
     const playPromise = ambientMusicAudio.play();
     if (playPromise && typeof playPromise.catch === "function") {
@@ -711,7 +764,8 @@
   }
 
   function resizeCanvas() {
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const dprCap = isMobileDevice() ? MOBILE_DPR_CAP : DESKTOP_DPR_CAP;
+    const dpr = Math.min(window.devicePixelRatio || 1, dprCap);
     canvas.width = Math.floor(W * dpr);
     canvas.height = Math.floor(H * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -1561,11 +1615,15 @@
     return state.possession === "blue" ? BUTTONS_OFFENSE : BUTTONS_DEFENSE;
   }
 
-  function useTouchControls() {
+  function isMobileDevice() {
     const coarsePointer = Boolean(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
     const touchCapable = Boolean(navigator.maxTouchPoints && navigator.maxTouchPoints > 0);
+    return coarsePointer || touchCapable;
+  }
+
+  function useTouchControls() {
     const narrowViewport = Math.min(window.innerWidth, window.innerHeight) <= 760;
-    return coarsePointer || (touchCapable && narrowViewport);
+    return isMobileDevice() && narrowViewport;
   }
 
   function primaryDesktopAction() {
@@ -2998,23 +3056,29 @@
     ctx.fillText("LOADING COURT...", W / 2, H / 2);
   }
 
-  function drawStartMenu() {
-    const img = assets.startMenu;
-    ctx.save();
-    ctx.fillStyle = "#030712";
-    ctx.fillRect(0, 0, W, H);
-    if (img && img.complete && img.naturalWidth) {
-      const scale = Math.max(W / img.naturalWidth, H / img.naturalHeight);
-      const dw = img.naturalWidth * scale;
-      const dh = img.naturalHeight * scale;
-      ctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
-    }
-    const fade = ctx.createLinearGradient(0, H * 0.55, 0, H);
-    fade.addColorStop(0, "rgba(0,0,0,0)");
-    fade.addColorStop(1, "rgba(0,0,0,0.72)");
-    ctx.fillStyle = fade;
-    ctx.fillRect(0, 0, W, H);
+  function buildStaticCanvasCaches() {
+    backgroundCacheCanvas = renderToStaticCanvas(drawBackgroundToContext);
+    startMenuCacheCanvas = renderToStaticCanvas(drawStartMenuBackgroundToContext);
+  }
 
+  function renderToStaticCanvas(drawFn) {
+    const buffer = document.createElement("canvas");
+    buffer.width = W;
+    buffer.height = H;
+    const bufferCtx = buffer.getContext("2d");
+    if (!bufferCtx) return null;
+    bufferCtx.imageSmoothingEnabled = false;
+    drawFn(bufferCtx);
+    return buffer;
+  }
+
+  function drawStartMenu() {
+    ctx.save();
+    if (startMenuCacheCanvas) {
+      ctx.drawImage(startMenuCacheCanvas, 0, 0, W, H);
+    } else {
+      drawStartMenuBackgroundToContext(ctx);
+    }
     const b = START_BUTTON;
     const pulse = 1 + Math.sin(performance.now() / 760) * 0.035;
     const bw = b.w * pulse;
@@ -3033,23 +3097,48 @@
     ctx.restore();
   }
 
+  function drawStartMenuBackgroundToContext(targetCtx) {
+    const img = assets.startMenu;
+    targetCtx.fillStyle = "#030712";
+    targetCtx.fillRect(0, 0, W, H);
+    if (img && img.complete && img.naturalWidth) {
+      const scale = Math.max(W / img.naturalWidth, H / img.naturalHeight);
+      const dw = img.naturalWidth * scale;
+      const dh = img.naturalHeight * scale;
+      targetCtx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+    }
+    const fade = targetCtx.createLinearGradient(0, H * 0.55, 0, H);
+    fade.addColorStop(0, "rgba(0,0,0,0)");
+    fade.addColorStop(1, "rgba(0,0,0,0.72)");
+    targetCtx.fillStyle = fade;
+    targetCtx.fillRect(0, 0, W, H);
+  }
+
   function drawBackground() {
+    if (backgroundCacheCanvas) {
+      ctx.drawImage(backgroundCacheCanvas, 0, 0, W, H);
+      return;
+    }
+    drawBackgroundToContext(ctx);
+  }
+
+  function drawBackgroundToContext(targetCtx) {
     const img = assets.court;
     if (img && img.complete && img.naturalWidth) {
       const scale = Math.max(W / img.naturalWidth, H / img.naturalHeight);
       const dw = img.naturalWidth * scale;
       const dh = img.naturalHeight * scale;
-      ctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+      targetCtx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
     } else {
-      ctx.fillStyle = "#9f642e";
-      ctx.fillRect(0, 0, W, H);
+      targetCtx.fillStyle = "#9f642e";
+      targetCtx.fillRect(0, 0, W, H);
     }
-    const grad = ctx.createLinearGradient(0, 0, 0, H);
+    const grad = targetCtx.createLinearGradient(0, 0, 0, H);
     grad.addColorStop(0, "rgba(0,0,0,0.18)");
     grad.addColorStop(0.5, "rgba(0,0,0,0)");
     grad.addColorStop(1, "rgba(0,0,0,0.32)");
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, W, H);
+    targetCtx.fillStyle = grad;
+    targetCtx.fillRect(0, 0, W, H);
   }
 
   function drawReferee() {
@@ -4647,10 +4736,16 @@
   }
 
   function loop(now) {
+    if (isMobileDevice() && now - lastMobileFrameAt < MOBILE_FRAME_MS) {
+      requestAnimationFrame(loop);
+      return;
+    }
+    if (isMobileDevice()) {
+      lastMobileFrameAt = now;
+    }
     const dt = (now - lastTime) / 1000;
     lastTime = now;
     update(dt);
-    syncAmbientMusic();
     draw();
     requestAnimationFrame(loop);
   }
